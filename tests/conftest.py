@@ -10,9 +10,13 @@ class FakeManager:
         self.calls: list[tuple] = []
         self.event = None
         self.show_mode = None
+        self._data = {}
 
     def current_context(self):
         return self._ctx
+
+    async def load_data(self):
+        return self._data
 
     async def switch_to(self, state, show_mode=None):
         self.calls.append(("switch_to", state))

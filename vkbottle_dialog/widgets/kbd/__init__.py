@@ -1,6 +1,16 @@
 from .base import ButtonColor, Keyboard, Or, RawKeyboard, VKButton
 from .button import Button, Url
 from .group import Column, Group, Row
+from .pager import (
+    CurrentPage,
+    FirstPage,
+    LastPage,
+    NextPage,
+    NumberedPager,
+    PrevPage,
+    SwitchPage,
+)
+from .scroll import ScrollingGroup, StubScroll, sync_scroll
 from .select import (
     Checkbox,
     ManagedCheckbox,
@@ -14,7 +24,9 @@ from .select import (
 )
 from .state import Back, Cancel, Next, Start, SwitchTo
 
-__all__ = ["Back", "Button", "ButtonColor", "Cancel", "Checkbox", "Column", "Group",
-           "Keyboard", "ManagedCheckbox", "ManagedMultiselect", "ManagedRadio",
-           "ManagedToggle", "Multiselect", "Next", "Or", "Radio", "RawKeyboard", "Row",
-           "Select", "Start", "SwitchTo", "Toggle", "Url", "VKButton"]
+__all__ = ["Back", "Button", "ButtonColor", "Cancel", "Checkbox", "Column", "CurrentPage",
+           "FirstPage", "Group", "Keyboard", "LastPage", "ManagedCheckbox",
+           "ManagedMultiselect", "ManagedRadio", "ManagedToggle", "Multiselect", "Next",
+           "NextPage", "NumberedPager", "Or", "PrevPage", "Radio", "RawKeyboard", "Row",
+           "ScrollingGroup", "Select", "Start", "StubScroll", "SwitchPage", "SwitchTo",
+           "Toggle", "Url", "VKButton", "sync_scroll"]
