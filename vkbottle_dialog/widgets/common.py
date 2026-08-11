@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import re
 from typing import Any, Callable, Sequence, Union
 
@@ -31,11 +32,18 @@ class Actionable:
             raise DialogConfigError(f"недопустимый widget id: {id!r}")
         self.widget_id = id
 
+    def _require_id(self) -> str:
+        if self.widget_id is None:
+            raise DialogConfigError(
+                f"{type(self).__name__}: виджету нужен id для хранения состояния"
+            )
+        return self.widget_id
+
     def get_widget_data(self, manager: Any, default: Any) -> Any:
-        return manager.current_context().widget_data.get(self.widget_id, default)
+        return manager.current_context().widget_data.get(self._require_id(), default)
 
     def set_widget_data(self, manager: Any, value: Any) -> None:
-        manager.current_context().widget_data[self.widget_id] = value
+        manager.current_context().widget_data[self._require_id()] = value
 
     def find(self, widget_id: str) -> Any:
         return self if self.widget_id == widget_id else None
@@ -70,7 +78,10 @@ def ensure_data_getter(getter: Any) -> Callable:
         return const
     if callable(getter):
         async def call(**kwargs: Any) -> dict:
-            return await getter(**kwargs) or {}
+            result = getter(**kwargs)
+            if inspect.isawaitable(result):
+                result = await result
+            return result or {}
         return call
     raise DialogConfigError(f"не понимаю getter: {getter!r}")
 

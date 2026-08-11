@@ -72,3 +72,19 @@ def test_items_getter():
     assert get_items_getter("items")({"items": [1, 2]}) == [1, 2]
     assert get_items_getter([3, 4])({}) == [3, 4]
     assert get_items_getter(lambda d: d["x"])({"x": [5]}) == [5]
+
+
+def test_actionable_id_none_raises_on_data_access():
+    w = Actionable(id=None)
+    m = FakeManager()
+    with pytest.raises(DialogConfigError):
+        w.set_widget_data(m, 1)
+    with pytest.raises(DialogConfigError):
+        w.get_widget_data(m, "def")
+
+
+async def test_sync_getter():
+    def sync_getter(**kw):
+        return {"b": 2}
+
+    assert await ensure_data_getter(sync_getter)() == {"b": 2}
