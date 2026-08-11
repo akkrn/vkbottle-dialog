@@ -1,0 +1,136 @@
+import json
+
+import pytest
+from vkbottle import Bot
+
+from vkbottle_dialog import Dialog, StartMode, Window, setup_dialogs
+from vkbottle_dialog.fsm import State, StatesGroup
+from vkbottle_dialog.integration.rules import NotInDialog
+from vkbottle_dialog.payload import encode_payload
+from vkbottle_dialog.storage import MemoryStorage
+from vkbottle_dialog.widgets.input import TextInput
+from vkbottle_dialog.widgets.kbd import Button, SwitchTo
+from vkbottle_dialog.widgets.text import Const
+
+
+class SG(StatesGroup):
+    menu = State()
+    form = State()
+
+
+def raw_message_new(text, peer=5, from_id=5, payload=None):
+    msg = {"id": 0, "conversation_message_id": 10, "peer_id": peer,
+           "from_id": from_id, "text": text, "attachments": [],
+           "date": 0, "version": 0, "out": 0, "fwd_messages": [],
+           "client_info": {"inline_keyboard": True, "button_actions": [],
+                           "keyboard": True, "lang_id": 0}}
+    if payload is not None:
+        msg["payload"] = payload
+    return {"type": "message_new", "group_id": 99,
+            "object": {"message": msg, "client_info": msg["client_info"]}}
+
+
+def raw_message_event(payload: dict, peer=5, user=5, cmid=101):
+    return {"type": "message_event", "group_id": 99,
+            "object": {"event_id": "ev1", "user_id": user, "peer_id": peer,
+                       "conversation_message_id": cmid, "payload": payload}}
+
+
+@pytest.fixture
+def world(fake_api):
+    clicked = []
+
+    async def on_click(event, widget, manager):
+        clicked.append("clicked")
+
+    dialog = Dialog(
+        Window(Const("Меню"),
+               Button(Const("Жми"), id="go", on_click=on_click),
+               SwitchTo(Const("Форма"), id="tof", state=SG.form),
+               state=SG.menu),
+        Window(Const("Введите имя"), TextInput(id="name"), state=SG.form),
+    )
+    bot = Bot("token")
+    # FakeApi инъецируется параметром api= (сетевых вызовов нет);
+    # в route FakeApi передаётся как ctx_api.
+    bg = setup_dialogs(bot, dialog, storage=MemoryStorage(), api=fake_api)
+
+    @bot.on.message(NotInDialog(), text="/start")
+    async def start(message, dialog_manager):
+        await dialog_manager.start(SG.menu, mode=StartMode.RESET_STACK)
+
+    return bot, fake_api, clicked, bg
+
+
+def intent_of(fake_api) -> str:
+    kb = json.loads(fake_api.sent("messages.send")[-1]["keyboard"])
+    payload = json.loads(kb["buttons"][0][0]["action"]["payload"])
+    return payload["__vkd__"].split("|")[0]
+
+
+async def test_full_flow_start_click_switch_input(world):
+    bot, api, clicked, _ = world
+    await bot.router.route(raw_message_new("/start"), api)
+    assert len(api.sent("messages.send")) == 1  # окно отправлено
+    intent = intent_of(api)
+
+    payload = json.loads(encode_payload(intent, "go", None))
+    await bot.router.route(raw_message_event(payload), api)
+    assert clicked == ["clicked"]
+    answers = api.sent("messages.sendMessageEventAnswer")
+    assert len(answers) == 1  # ack ровно один
+
+    payload = json.loads(encode_payload(intent, "tof", None))
+    await bot.router.route(raw_message_event(payload), api)
+    # SwitchTo → рендер формы (edit свежего окна)
+    assert api.sent("messages.edit")
+
+    await bot.router.route(raw_message_new("Вася"), api)  # TextInput
+    # ввод принят: окно перерисовано send'ом (text-триггер)
+
+
+async def test_stale_intent_gets_snackbar(world):
+    bot, api, _, _ = world
+    payload = json.loads(encode_payload("FakeIntent1", "go", None))
+    await bot.router.route(raw_message_event(payload), api)
+    answers = api.sent("messages.sendMessageEventAnswer")
+    assert len(answers) == 1
+    assert "snackbar" in answers[0].get("event_data", "")
+
+
+async def test_foreign_event_ignored(world):
+    bot, api, _, _ = world
+    await bot.router.route(raw_message_event({"command": "other_lib"}), api)
+    assert api.sent("messages.sendMessageEventAnswer") == []  # без ack
+
+
+async def test_cross_user_replay_rejected_in_chat(world):
+    bot, api, clicked, _ = world
+    chat_peer = 2_000_000_001
+    await bot.router.route(
+        raw_message_new("/start", peer=chat_peer, from_id=7), api)
+    intent = intent_of(api)
+    # атакующий user=8 реплеит payload владельца user=7 через message_event
+    payload = json.loads(encode_payload(intent, "go", None))
+    await bot.router.route(
+        raw_message_event(payload, peer=chat_peer, user=8), api)
+    # стек-ключ выводится из события → стек атакующего (owner=8) пуст →
+    # intent не вершина его стека → отказ + снекбар; on_click НЕ вызван
+    assert clicked == []
+    answers = api.sent("messages.sendMessageEventAnswer")
+    assert len(answers) == 1 and "snackbar" in answers[0].get("event_data", "")
+    # владелец (user=7) кликает свой intent — работает
+    await bot.router.route(
+        raw_message_event(payload, peer=chat_peer, user=7), api)
+    assert clicked == ["clicked"]
+
+
+async def test_user_handler_not_in_dialog(world):
+    bot, api, _, _ = world
+    await bot.router.route(raw_message_new("/start"), api)
+    intent_before = intent_of(api)
+    await bot.router.route(raw_message_new("/start"), api)
+    # NotInDialog: диалог активен → пользовательский хендлер /start не сработал,
+    # RESET_STACK-пересоздания не было. DialogView перерисовал окно текстовым
+    # триггером (send) — допустимо; intent окна остался прежним.
+    assert intent_of(api) == intent_before

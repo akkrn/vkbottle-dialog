@@ -49,6 +49,7 @@ class ManagerImpl:
         self.middleware_data = middleware_data or {}
         self.show_mode: ShowMode = ShowMode.AUTO
         self._answer_latch: Any = None  # ставит DialogView
+        self._detached = False  # ставит правило InDialog/NotInDialog
         self._dirty_contexts: dict[str, Context] = {}
         if context is not None:
             self._dirty_contexts[context.intent_id] = context
@@ -99,9 +100,29 @@ class ManagerImpl:
 
     # --- навигация ---
 
+    async def _run_detached(self, impl: Callable[..., Any], *args: Any) -> None:
+        """Detached-менеджер (из InDialog/NotInDialog) не сидит под чужим
+        lock'ом — start/done/update сами берут lock стека и коммитят
+        (LockRegistry реентерабелен — вложенный acquire того же стека не
+        дедлочится)."""
+        if not self._detached:
+            await impl(*args)
+            return
+        async with self._locks.acquire(self._event_ctx.stack_key):
+            self._detached = False
+            try:
+                await impl(*args)
+                await self.commit()
+            finally:
+                self._detached = True
+
     async def start(self, state: State, data: Any = None,
                     mode: StartMode = StartMode.NORMAL,
                     show_mode: ShowMode | None = None) -> None:
+        await self._run_detached(self._start_impl, state, data, mode, show_mode)
+
+    async def _start_impl(self, state: State, data: Any,
+                          mode: StartMode, show_mode: ShowMode | None) -> None:
         if show_mode is not None:
             self.show_mode = show_mode
         if mode == StartMode.NEW_STACK:
@@ -168,6 +189,9 @@ class ManagerImpl:
 
     async def done(self, result: Any = None,
                    show_mode: ShowMode | None = None) -> None:
+        await self._run_detached(self._done_impl, result, show_mode)
+
+    async def _done_impl(self, result: Any, show_mode: ShowMode | None) -> None:
         if show_mode is not None:
             self.show_mode = show_mode
         closing = self.current_context()
@@ -208,6 +232,9 @@ class ManagerImpl:
             await self.show()
 
     async def update(self, data: dict, show_mode: ShowMode | None = None) -> None:
+        await self._run_detached(self._update_impl, data, show_mode)
+
+    async def _update_impl(self, data: dict, show_mode: ShowMode | None) -> None:
         self.dialog_data.update(data)
         if show_mode is not None:
             self.show_mode = show_mode
