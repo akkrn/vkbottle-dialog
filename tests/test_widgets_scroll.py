@@ -61,3 +61,18 @@ async def test_sync_scroll(fake_manager_factory):
     handler = sync_scroll("a", "b")
     await handler(None, a, m, 2)
     assert b.get_page(m) == 2
+
+
+async def test_malformed_scrolling_group_callback(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    sg = ScrollingGroup(*buttons(5), id="sc", height=2, width=1)
+    result = await sg.process_callback("sc:abc", m)
+    assert result is False  # malformed item not handled
+
+
+async def test_stub_scroll_clamps_page(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    stub = StubScroll(id="st", pages="pages")
+    m._data = {"pages": 3}
+    await stub.process_callback("st:99", m)
+    assert stub.get_page(m) == 2  # clamped to pages-1

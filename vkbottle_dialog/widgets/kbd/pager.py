@@ -16,10 +16,14 @@ class BasePager(Keyboard):
         return manager.find_scroll(self._scroll_id)
 
     async def _process_item_callback(self, item: str, manager: Any) -> bool:
+        try:
+            page = int(item)
+        except ValueError:
+            return False
         scroll = self._scroll(manager)
         data = await manager.load_data() if hasattr(manager, "load_data") else {}
         pages = await scroll.get_page_count(data, manager)
-        await scroll.set_page(manager, max(0, min(int(item), pages - 1)))
+        await scroll.set_page(manager, max(0, min(page, pages - 1)))
         return True
 
     def _btn(self, label: str, page: int) -> VKButton:

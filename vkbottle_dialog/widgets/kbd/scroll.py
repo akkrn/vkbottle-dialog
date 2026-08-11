@@ -68,9 +68,13 @@ class ScrollingGroup(Group, BaseScroll):
         ]
 
     async def _process_item_callback(self, item: str, manager: Any) -> bool:
+        try:
+            page = int(item)
+        except ValueError:
+            return False
         data = await manager.load_data() if hasattr(manager, "load_data") else {}
         pages = await self.get_page_count(data, manager)
-        await self.set_page(manager, max(0, min(int(item), pages - 1)))
+        await self.set_page(manager, max(0, min(page, pages - 1)))
         return True
 
 
@@ -90,7 +94,13 @@ class StubScroll(Keyboard, BaseScroll):
         return []
 
     async def _process_item_callback(self, item: str, manager: Any) -> bool:
-        await self.set_page(manager, int(item))
+        try:
+            page = int(item)
+        except ValueError:
+            return False
+        data = await manager.load_data() if hasattr(manager, "load_data") else {}
+        pages = await self.get_page_count(data, manager)
+        await self.set_page(manager, max(0, min(page, pages - 1)))
         return True
 
 
