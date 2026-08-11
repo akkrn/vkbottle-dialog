@@ -1,5 +1,7 @@
+import pytest
 from magic_filter import F
 
+from vkbottle_dialog.exceptions import DialogConfigError
 from vkbottle_dialog.widgets.text import Case, Const, Format, List, Multi, Or, Progress
 
 
@@ -35,3 +37,15 @@ async def test_list_and_progress():
     assert await lst.render_text({"rows": ["a", "b"]}, None) == "1. a\n2. b"
     p = Progress("done", width=4)
     assert await p.render_text({"done": 50}, None) == "██░░"
+
+
+async def test_progress_clamping():
+    p = Progress("d", width=4)
+    assert await p.render_text({"d": 150}, None) == "████"
+    assert await p.render_text({"d": -5}, None) == "░░░░"
+
+
+async def test_case_unhashable_selector():
+    c = Case({1: Const("one")}, selector=lambda data, case, mgr: [1, 2])
+    with pytest.raises(DialogConfigError, match="нехэшируемое значение"):
+        await c.render_text({}, None)

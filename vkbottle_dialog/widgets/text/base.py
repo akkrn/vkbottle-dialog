@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Union
+from collections.abc import Callable
+from typing import Any
 
 from magic_filter import MagicFilter
 
@@ -17,10 +18,10 @@ class Text(Whenable):
     async def _render_text(self, data: dict, manager: Any) -> str:
         raise NotImplementedError
 
-    def __add__(self, other: "Text") -> "Multi":
+    def __add__(self, other: Text) -> Multi:
         return Multi(self, other, sep="")
 
-    def __or__(self, other: "Text") -> "Or":
+    def __or__(self, other: Text) -> Or:
         return Or(self, other)
 
 
@@ -71,7 +72,7 @@ class Or(Text):
         return ""
 
 
-Selector = Union[str, MagicFilter, Callable[[dict, "Case", Any], Any]]
+Selector = str | MagicFilter | Callable[[dict, "Case", Any], Any]
 
 
 class Case(Text):
@@ -90,5 +91,10 @@ class Case(Text):
 
     async def _render_text(self, data: dict, manager: Any) -> str:
         key = self._select(data, manager)
-        widget = self._texts.get(key, self._texts.get(...))
+        try:
+            widget = self._texts.get(key, self._texts.get(...))
+        except TypeError:
+            raise DialogConfigError(
+                f"Case: селектор вернул нехэшируемое значение {key!r}"
+            ) from None
         return await widget.render_text(data, manager) if widget else ""

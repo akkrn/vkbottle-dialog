@@ -32,6 +32,6 @@ class Progress(Text):
         self._empty = empty
 
     async def _render_text(self, data: dict, manager: Any) -> str:
-        percent = float(data.get(self._field, 0))
+        percent = max(0.0, min(100.0, float(data.get(self._field, 0))))
         done = round(self._width * percent / 100)
         return self._filled * done + self._empty * (self._width - done)
