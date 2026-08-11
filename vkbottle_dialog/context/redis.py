@@ -7,6 +7,12 @@ DEFAULT_TTL = 30 * 24 * 3600
 
 
 class RedisStorage:
+    """Redis-backed storage with JSON serialization.
+
+    Клиент — любой объект с интерфейсом redis.asyncio.Redis (get/set/delete/pipeline);
+    установка extra: pip install vkbottle-dialog[redis].
+    """
+
     def __init__(self, redis: Any, ttl: int = DEFAULT_TTL, prefix: str = "") -> None:
         self._redis = redis
         self._ttl = ttl
