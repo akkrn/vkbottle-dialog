@@ -1,5 +1,3 @@
-from types import SimpleNamespace
-
 import pytest
 from magic_filter import F
 
@@ -7,7 +5,11 @@ from vkbottle_dialog.api.entities import Stack, make_stack_key
 from vkbottle_dialog.exceptions import DialogConfigError
 from vkbottle_dialog.fsm import State, StatesGroup
 from vkbottle_dialog.widgets.common import (
-    Actionable, Whenable, ensure_data_getter, ensure_event_processor, get_items_getter,
+    Actionable,
+    Whenable,
+    ensure_data_getter,
+    ensure_event_processor,
+    get_items_getter,
 )
 
 
@@ -54,6 +56,17 @@ async def test_event_processor():
     await proc.process_event("ev", None, None)
     assert calls == ["ev"]
     await ensure_event_processor(None).process_event("ev", None, None)  # no-op
+
+
+async def test_event_processor_sync_handler():
+    calls = []
+
+    def sync_handler(a, b, c):
+        calls.append(a)
+
+    proc = ensure_event_processor(sync_handler)
+    await proc.process_event(1, 2, 3)
+    assert calls == [1]
 
 
 async def test_data_getters():

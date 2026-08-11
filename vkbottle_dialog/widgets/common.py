@@ -57,8 +57,11 @@ class WidgetEventProcessor:
         self._handler = handler
 
     async def process_event(self, *args: Any) -> None:
-        if self._handler is not None:
-            await self._handler(*args)
+        if self._handler is None:
+            return
+        result = self._handler(*args)
+        if inspect.isawaitable(result):
+            await result
 
 
 def ensure_event_processor(handler: Callable | None) -> WidgetEventProcessor:
