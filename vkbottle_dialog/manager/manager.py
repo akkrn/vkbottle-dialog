@@ -185,12 +185,19 @@ class ManagerImpl:
                     await self._message_manager.remove_kbd(
                         self._stack, self._event_ctx.peer_id, now=self._config.now())
             return
-        # Родитель мог быть создан/изменён в этой же сессии менеджера и ещё не
-        # закоммичен в storage — предпочитаем живую in-memory версию, иначе
-        # рискуем откатить несохранённые изменения (или получить UnknownIntent).
-        parent = self._dirty_contexts.get(parent_id)
-        if parent is None:
+        # Storage — источник истины: параллельный bg() на тот же стек мог
+        # закоммитить более свежую версию родителя, чем то, что лежит в
+        # in-memory _dirty_contexts этого менеджера. In-memory версия — только
+        # запасной вариант на случай, если родитель ещё не был закоммичен
+        # вовсе (иначе тут был бы UnknownIntent).
+        parent: Context
+        try:
             parent = await self._proxy.load_context(parent_id)
+        except UnknownIntent:
+            dirty_parent = self._dirty_contexts.get(parent_id)
+            if dirty_parent is None:
+                raise
+            parent = dirty_parent
         self._context = parent
         self._dirty_contexts[parent.intent_id] = parent
         parent_dialog = self.dialog()

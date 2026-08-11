@@ -2,6 +2,7 @@ import pytest
 
 from vkbottle_dialog.api.entities import (
     EventContext,
+    LaunchMode,
     StartMode,
 )
 from vkbottle_dialog.context.locks import LockRegistry
@@ -25,6 +26,18 @@ class MainSG(StatesGroup):
 
 class SubSG(StatesGroup):
     x = State()
+
+
+class RootSG(StatesGroup):
+    r = State()
+
+
+class ExclusiveSG(StatesGroup):
+    e = State()
+
+
+class SingleTopSG(StatesGroup):
+    s = State()
 
 
 results = []
@@ -60,6 +73,34 @@ def build_world(fake_api):
         config=DialogConfig(secret=None, now=lambda: 1000.0),
     )
     return main, sub, deps
+
+
+def build_launch_mode_world(fake_api):
+    main = Dialog(Window(Const("A"), state=MainSG.a), Window(Const("B"), state=MainSG.b))
+    root = Dialog(Window(Const("R"), state=RootSG.r), launch_mode=LaunchMode.ROOT)
+    exclusive = Dialog(Window(Const("E"), state=ExclusiveSG.e),
+                       launch_mode=LaunchMode.EXCLUSIVE)
+    single_top = Dialog(Window(Const("S"), state=SingleTopSG.s),
+                        launch_mode=LaunchMode.SINGLE_TOP)
+    dialogs = {MainSG: main, RootSG: root, ExclusiveSG: exclusive, SingleTopSG: single_top}
+
+    class Registry:
+        def dialog_for_group(self, group):
+            return dialogs[group]
+
+        def dialog_for_state(self, state):
+            return self.dialog_for_group(state.group)
+
+    states = StatesRegistry()
+    for group in dialogs:
+        states.register(group)
+    proxy = StorageProxy(MemoryStorage(), states)
+    return dict(
+        registry=Registry(), proxy=proxy,
+        message_manager=MessageManager(fake_api),
+        locks=LockRegistry(),
+        config=DialogConfig(secret=None, now=lambda: 1000.0),
+    )
 
 
 def ev(kind="message_event"):
@@ -159,3 +200,50 @@ async def test_update_merges_and_shows(fake_api):
     await m.update({"k": "v"})
     assert m.dialog_data == {"k": "v"}
     assert len(fake_api.calls) >= calls_before  # show() вызван
+
+
+async def test_nested_bg_update_not_clobbered_by_done(fake_api):
+    # Регрессия: done() раньше предпочитал in-memory _dirty_contexts, из-за
+    # чего свежий commit параллельного bg() на того же родителя откатывался
+    # обратно устаревшей копией. done() должен читать родителя из storage
+    # (источник истины) и падать в dirty-cache только если родитель ещё не
+    # был закоммичен вовсе.
+    _, _, deps = build_world(fake_api)
+    m = await make_manager(deps)
+    await m.start(MainSG.a)
+    await m.commit()
+    m2 = await make_manager(deps)
+    await m2.start(SubSG.x)
+    bg = m2.bg(peer_id=5)
+    await bg.update({"n": 1})
+    await m2.done(result="ok")
+    await m2.commit()
+    m3 = await make_manager(deps)
+    assert m3.current_context().dialog_data.get("n") == 1
+
+
+async def test_root_launch_mode_clears_stack(fake_api):
+    deps = build_launch_mode_world(fake_api)
+    m = await make_manager(deps)
+    await m.start(MainSG.a)
+    await m.start(RootSG.r)
+    assert len(m.current_stack().intents) == 1
+    assert m.current_context().state is RootSG.r
+
+
+async def test_start_on_exclusive_raises(fake_api):
+    deps = build_launch_mode_world(fake_api)
+    m = await make_manager(deps)
+    await m.start(ExclusiveSG.e)
+    with pytest.raises(DialogConfigError):
+        await m.start(MainSG.a)
+
+
+async def test_single_top_replaces_top(fake_api):
+    deps = build_launch_mode_world(fake_api)
+    m = await make_manager(deps)
+    await m.start(SingleTopSG.s)
+    first_id = m.current_context().intent_id
+    await m.start(SingleTopSG.s)
+    assert len(m.current_stack().intents) == 1
+    assert m.current_context().intent_id != first_id
