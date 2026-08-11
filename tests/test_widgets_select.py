@@ -72,3 +72,26 @@ async def test_checkbox(fake_manager_factory):
     assert kb[0][0].label == "[ ]"
     await cb.process_callback("cb", m)
     assert cb.managed(m).is_checked() is True
+
+
+async def test_multiselect_blocked_uncheck_silent(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    calls = []
+
+    async def on_state_changed(event, widget, manager, item_id):
+        calls.append(("on_state_changed", item_id))
+
+    ms = Multiselect(Format("✓{item[id]}"), Format("{item[id]}"), id="ms",
+                     item_id_getter=GET_ID, items="items", min_selected=1,
+                     on_state_changed=on_state_changed)
+    # Check one item
+    await ms.process_callback("ms:1", m)
+    assert m.current_context().widget_data["ms"] == ["1"]
+    assert len(calls) == 1
+    calls.clear()
+    # Try to uncheck the only item (blocked by min_selected=1)
+    await ms.process_callback("ms:1", m)
+    # widget_data must remain unchanged
+    assert m.current_context().widget_data["ms"] == ["1"]
+    # on_state_changed must not fire (silent no-op)
+    assert calls == []

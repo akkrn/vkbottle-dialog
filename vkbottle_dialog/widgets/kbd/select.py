@@ -108,12 +108,13 @@ class Multiselect(Radio):
     async def _handle_click(self, item_id: str, manager: Any) -> None:
         checked: list[str] = list(self.get_widget_data(manager, []))
         if item_id in checked:
-            if len(checked) > self._min:
-                checked.remove(item_id)
-        elif self._max == 0 or len(checked) < self._max:
-            checked.append(item_id)
+            if len(checked) <= self._min:
+                return  # uncheck blocked by min_selected
+            checked.remove(item_id)
         else:
-            return
+            if self._max != 0 and len(checked) >= self._max:
+                return  # check blocked by max_selected
+            checked.append(item_id)
         self.set_widget_data(manager, checked)
         await self._on_state_changed.process_event(manager.event, self, manager, item_id)
         await self._on_click.process_event(manager.event, self, manager, item_id)
