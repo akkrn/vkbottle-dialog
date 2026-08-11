@@ -39,11 +39,12 @@ class State:
 class StatesGroup:
     @classmethod
     def states(cls) -> tuple[State, ...]:
-        return tuple(v for v in vars(cls).values() if isinstance(v, State))
-
-    @classmethod
-    def __group_name__(cls) -> str:
-        return cls.__name__
+        seen: list[State] = []
+        for klass in reversed(cls.__mro__):
+            for value in vars(klass).values():
+                if isinstance(value, State) and value not in seen:
+                    seen.append(value)
+        return tuple(seen)
 
 
 class StatesRegistry:

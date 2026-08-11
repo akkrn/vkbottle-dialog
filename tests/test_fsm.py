@@ -32,3 +32,13 @@ def test_registry_resolve():
         reg.resolve("SG:nope")
     with pytest.raises(UnknownState):
         reg.resolve("Other:first")
+
+
+def test_states_inheritance():
+    class Base(StatesGroup):
+        a = State()
+
+    class Sub(Base):
+        b = State()
+
+    assert Sub.states() == (Base.a, Sub.b)
