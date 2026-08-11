@@ -2,32 +2,37 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
-from contextvars import ContextVar
-
-# Ключи, удерживаемые текущей логической задачей (спека §4: реентерабельность).
-_held_keys: ContextVar[frozenset[str]] = ContextVar("vkd_held_keys", default=frozenset())
 
 
 class LockRegistry:
+    """Per-key взаимное исключение с реентерабельностью в рамках одной asyncio-задачи.
+
+    Реентерабельность определяется по identity текущего asyncio.Task —
+    задача, порождённая create_task/ensure_future внутри критической секции,
+    честно ждёт lock (наследования "held"-состояния нет).
+    """
+
     def __init__(self) -> None:
         self._locks: dict[str, asyncio.Lock] = {}
         self._waiters: dict[str, int] = {}
+        self._owners: dict[str, asyncio.Task] = {}
 
     @asynccontextmanager
     async def acquire(self, key: str):
-        held = _held_keys.get()
-        if key in held:
+        current = asyncio.current_task()
+        assert current is not None, "LockRegistry.acquire вне asyncio-задачи"
+        if self._owners.get(key) is current:
             yield  # реентерабельный вход — lock уже наш
             return
         lock = self._locks.setdefault(key, asyncio.Lock())
         self._waiters[key] = self._waiters.get(key, 0) + 1
         try:
             async with lock:
-                token = _held_keys.set(held | {key})
+                self._owners[key] = current
                 try:
                     yield
                 finally:
-                    _held_keys.reset(token)
+                    del self._owners[key]
         finally:
             self._waiters[key] -= 1
             if self._waiters[key] == 0:

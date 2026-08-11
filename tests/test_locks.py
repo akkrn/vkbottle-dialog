@@ -46,3 +46,19 @@ async def test_registry_cleanup():
     async with reg.acquire("k"):
         pass
     assert len(reg._locks) == 0
+
+
+async def test_spawned_task_does_not_inherit_lock():
+    reg = LockRegistry()
+    order: list[str] = []
+
+    async def child():
+        async with reg.acquire("k"):
+            order.append("child-in")
+
+    async with reg.acquire("k"):
+        task = asyncio.create_task(child())
+        await asyncio.sleep(0.01)
+        order.append("parent-out")
+    await task
+    assert order == ["parent-out", "child-in"]  # ребёнок ждал освобождения
