@@ -1,0 +1,10 @@
+# Числа перепроверить по dev.vk.com перед релизом (риск §10.3 спеки).
+INLINE_MAX_BUTTONS = 10
+INLINE_MAX_ROWS = 6
+MAX_PER_ROW = 5
+TEXT_KB_MAX_BUTTONS = 40
+TEXT_KB_MAX_ROWS = 10
+LABEL_MAX = 40
+PAYLOAD_MAX = 255
+EDIT_WINDOW_SECONDS = 84600  # 23.5 ч: запас к 24-часовому лимиту VK (ошибка 909)
+STACK_LIMIT = 100
