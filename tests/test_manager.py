@@ -1,0 +1,161 @@
+import pytest
+
+from vkbottle_dialog.api.entities import (
+    EventContext,
+    StartMode,
+)
+from vkbottle_dialog.context.locks import LockRegistry
+from vkbottle_dialog.context.memory import MemoryStorage
+from vkbottle_dialog.context.proxy import StorageProxy
+from vkbottle_dialog.dialog import Dialog
+from vkbottle_dialog.exceptions import DialogConfigError
+from vkbottle_dialog.fsm import State, StatesGroup, StatesRegistry
+from vkbottle_dialog.manager.bg_manager import BgManagerFactory
+from vkbottle_dialog.manager.manager import DialogConfig, ManagerImpl
+from vkbottle_dialog.manager.message_manager import MessageManager
+from vkbottle_dialog.widgets.kbd import Button
+from vkbottle_dialog.widgets.text import Const, Format
+from vkbottle_dialog.window import Window
+
+
+class MainSG(StatesGroup):
+    a = State()
+    b = State()
+
+
+class SubSG(StatesGroup):
+    x = State()
+
+
+results = []
+
+
+async def on_sub_result(start_data, result, manager):
+    results.append((start_data, result))
+
+
+def build_world(fake_api):
+    main = Dialog(
+        Window(Const("A"), Button(Const("b"), id="btn"), state=MainSG.a),
+        Window(Format("B"), state=MainSG.b),
+        on_process_result=on_sub_result,
+    )
+    sub = Dialog(Window(Const("X"), state=SubSG.x))
+
+    class Registry:
+        def dialog_for_group(self, group):
+            return {MainSG: main, SubSG: sub}[group]
+
+        def dialog_for_state(self, state):
+            return self.dialog_for_group(state.group)
+
+    states = StatesRegistry()
+    states.register(MainSG)
+    states.register(SubSG)
+    proxy = StorageProxy(MemoryStorage(), states)
+    deps = dict(
+        registry=Registry(), proxy=proxy,
+        message_manager=MessageManager(fake_api),
+        locks=LockRegistry(),
+        config=DialogConfig(secret=None, now=lambda: 1000.0),
+    )
+    return main, sub, deps
+
+
+def ev(kind="message_event"):
+    return EventContext(group_id=1, peer_id=5, owner_id=5, user_id=5,
+                        kind=kind, raw=None)
+
+
+async def make_manager(deps, event=None):
+    event = event or ev()
+    stack = await deps["proxy"].load_stack(event.stack_key)
+    ctx = await deps["proxy"].load_top(stack) if not stack.empty() else None
+    return ManagerImpl(event_ctx=event, stack=stack, context=ctx, **deps)
+
+
+async def test_start_renders_and_persists(fake_api):
+    _, _, deps = build_world(fake_api)
+    m = await make_manager(deps)
+    await m.start(MainSG.a)
+    await m.commit()
+    assert len(fake_api.sent("messages.send")) == 1
+    m2 = await make_manager(deps)
+    assert m2.current_context().state is MainSG.a
+
+
+async def test_switch_navigation(fake_api):
+    _, _, deps = build_world(fake_api)
+    m = await make_manager(deps)
+    await m.start(MainSG.a)
+    await m.next()
+    assert m.current_context().state is MainSG.b
+    await m.back()
+    assert m.current_context().state is MainSG.a
+    with pytest.raises(DialogConfigError):
+        await m.back()
+    with pytest.raises(DialogConfigError):
+        await m.switch_to(SubSG.x)  # чужая группа
+
+
+async def test_subdialog_result_flow(fake_api):
+    results.clear()
+    _, _, deps = build_world(fake_api)
+    m = await make_manager(deps)
+    await m.start(MainSG.a)
+    await m.start(SubSG.x, data={"q": 1})
+    assert m.current_context().state is SubSG.x
+    assert len(m.current_stack().intents) == 2
+    await m.done(result="ok")
+    assert m.current_context().state is MainSG.a
+    assert results == [({"q": 1}, "ok")]
+
+
+async def test_done_last_removes_kbd(fake_api):
+    _, _, deps = build_world(fake_api)
+    m = await make_manager(deps)
+    await m.start(MainSG.a)
+    await m.done()
+    assert not m.has_context()
+    assert m.current_stack().last_cmid is None  # remove_kbd отработал
+
+
+async def test_reset_stack_mode(fake_api):
+    _, _, deps = build_world(fake_api)
+    m = await make_manager(deps)
+    await m.start(MainSG.a)
+    await m.start(SubSG.x)
+    await m.start(MainSG.b, mode=StartMode.RESET_STACK)
+    assert len(m.current_stack().intents) == 1
+    assert m.current_context().state is MainSG.b
+
+
+async def test_new_stack_not_implemented(fake_api):
+    _, _, deps = build_world(fake_api)
+    m = await make_manager(deps)
+    with pytest.raises(NotImplementedError):
+        await m.start(MainSG.a, mode=StartMode.NEW_STACK)
+
+
+async def test_bg_manager_from_handler_no_deadlock(fake_api):
+    _, _, deps = build_world(fake_api)
+    factory = BgManagerFactory(group_id=1, **deps)  # group_id как в ev()
+    m = await make_manager(deps)
+    await m.start(MainSG.a)
+    await m.commit()
+    # bg на тот же стек изнутри уже взятого lock'а — реентерабельность
+    async with deps["locks"].acquire(ev().stack_key):
+        bg = factory.bg(peer_id=5)
+        await bg.update({"n": 1})
+    m2 = await make_manager(deps)
+    assert m2.current_context().dialog_data == {"n": 1}
+
+
+async def test_update_merges_and_shows(fake_api):
+    _, _, deps = build_world(fake_api)
+    m = await make_manager(deps)
+    await m.start(MainSG.a)
+    calls_before = len(fake_api.calls)
+    await m.update({"k": "v"})
+    assert m.dialog_data == {"k": "v"}
+    assert len(fake_api.calls) >= calls_before  # show() вызван
