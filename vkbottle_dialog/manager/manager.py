@@ -88,6 +88,11 @@ class ManagerImpl:
         return self._registry.dialog_for_group(self.current_context().state.group)
 
     async def load_data(self) -> dict:
+        """Единственная точка сборки данных геттеров: базовые ключи → global
+        → dialog-level → window-level (текущего окна). Вызывается и при
+        рендере (Window.render → Window.load_data), и на callback-время
+        виджетами (ScrollingGroup/BasePager/StubScroll/Toggle) — так данные
+        на клике совпадают с данными последнего рендера."""
         data: dict = {
             "dialog_data": self.dialog_data if self.has_context() else {},
             "start_data": self.start_data if self.has_context() else None,
@@ -98,6 +103,8 @@ class ManagerImpl:
         if self._config.global_getter is not None:
             getter = ensure_data_getter(self._config.global_getter)
             data.update(await getter(dialog_manager=self))
+        if self.has_context():
+            data.update(await self.dialog().load_getter_data(self))
         return data
 
     def find(self, widget_id: str) -> Any:

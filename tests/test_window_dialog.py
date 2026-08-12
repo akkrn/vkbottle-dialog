@@ -31,17 +31,30 @@ def chat_event():
 
 
 class RenderManager:
-    """FakeManager с load_data для рендера (см. conftest — расширить базовый)."""
+    """FakeManager с load_data для рендера (см. conftest — расширить базовый).
 
-    def __init__(self, ctx):
+    Мимикрирует ManagerImpl.load_data(): база + dialog/window-геттеры через
+    dlg.load_getter_data(), чтобы Window.load_data (который теперь просто
+    делегирует в manager.load_data()) видел те же данные, что и рендер в
+    боевом коде."""
+
+    def __init__(self, ctx, dlg=None):
         self._ctx = ctx
         self.event = None
+        self.middleware_data: dict = {}
+        self._dlg = dlg
 
     def current_context(self):
         return self._ctx
 
+    def dialog(self):
+        return self._dlg
+
     async def load_data(self):
-        return {"dialog_data": self._ctx.dialog_data, "start_data": self._ctx.start_data}
+        data = {"dialog_data": self._ctx.dialog_data, "start_data": self._ctx.start_data}
+        if self._dlg is not None:
+            data.update(await self._dlg.load_getter_data(self))
+        return data
 
 
 async def test_window_render(fake_manager_factory):
@@ -57,7 +70,7 @@ async def test_window_render(fake_manager_factory):
 
     stack = Stack(key=make_stack_key(1, 5, 5))
     ctx = stack.push(SG.first, None)
-    m = RenderManager(ctx)
+    m = RenderManager(ctx, dlg)
     msg = await dlg.render(m, ls_event(), ctx.intent_id, None, InlineKeyboardFactory())
     assert msg.text == "Привет, \nВася!"
     assert msg.keyboard_kind is KeyboardKind.INLINE and "Ok" in msg.keyboard
@@ -77,7 +90,7 @@ async def test_text_keyboard_forbidden_in_chat():
     ctx = stack.push(SG.first, None)
     with pytest.raises(DialogConfigError):
         await dlg.render(
-            RenderManager(ctx), chat_event(), ctx.intent_id, None, InlineKeyboardFactory()
+            RenderManager(ctx, dlg), chat_event(), ctx.intent_id, None, InlineKeyboardFactory()
         )
 
 

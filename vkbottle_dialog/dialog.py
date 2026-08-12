@@ -48,10 +48,16 @@ class Dialog:
         except KeyError:
             raise UnknownState(f"нет окна для {state.state}") from None
 
-    async def load_data(self, manager: Any) -> dict:
-        data = await manager.load_data()
+    async def load_getter_data(self, manager: Any) -> dict:
+        """Полная цепочка геттеров этого диалога: dialog-level геттер, затем
+        геттер текущего окна (перекрывает одноимённые ключи). Единственная
+        точка вызова — ManagerImpl.load_data(), так что геттеры выполняются
+        ровно один раз на рендер и данные callback-времени совпадают с
+        данными рендера (см. Window.load_data)."""
         kwargs = {**getattr(manager, "middleware_data", {}), "dialog_manager": manager}
-        data.update(await self._getter(**kwargs))
+        data = await self._getter(**kwargs)
+        window = self.window_for(manager.current_context().state)
+        data.update(await window.load_getter_data(manager))
         return data
 
     async def render(

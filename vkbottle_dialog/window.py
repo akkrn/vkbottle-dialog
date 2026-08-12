@@ -32,10 +32,15 @@ class Window:
         self._dont_parse_links = dont_parse_links
 
     async def load_data(self, manager: Any) -> dict:
-        data = await manager.load_data()
+        # Геттеры (global/dialog/window) уже применены внутри
+        # manager.load_data() — единая точка правды, чтобы данные
+        # callback-времени (виджеты вроде ScrollingGroup зовут
+        # manager.load_data() напрямую) совпадали с данными рендера.
+        return await manager.load_data()
+
+    async def load_getter_data(self, manager: Any) -> dict:
         kwargs = {**getattr(manager, "middleware_data", {}), "dialog_manager": manager}
-        data.update(await self._getter(**kwargs))
-        return data
+        return await self._getter(**kwargs)
 
     async def render(
         self,

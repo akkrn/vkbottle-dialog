@@ -11,8 +11,8 @@ from vkbottle_dialog.integration.setup import active_setup
 from vkbottle_dialog.payload import encode_payload
 from vkbottle_dialog.storage import MemoryStorage
 from vkbottle_dialog.widgets.input import TextInput
-from vkbottle_dialog.widgets.kbd import Button, SwitchTo
-from vkbottle_dialog.widgets.text import Const
+from vkbottle_dialog.widgets.kbd import Button, ScrollingGroup, Select, SwitchTo
+from vkbottle_dialog.widgets.text import Const, Format
 
 
 class SG(StatesGroup):
@@ -214,3 +214,81 @@ async def test_unknown_state_gets_single_ack_and_recovers(fake_api):
     assert len(answers) == 1  # ack ровно один — без него VK покажет спиннер навечно
     assert "snackbar" in answers[0].get("event_data", "")
     assert len(recovered) == 1  # on_unknown_state вызван
+
+
+class CatalogSG(StatesGroup):
+    items = State()
+
+
+async def test_pagination_with_window_getter_items_end_to_end(fake_api):
+    # Регрессия C1+C2: ManagerImpl.load_data() раньше возвращал только
+    # базовые ключи + global-геттер — виджеты вроде ScrollingGroup зовут
+    # manager.load_data() на callback-время (посчитать page_count), но
+    # window-геттер (items="items") в этот набор не попадал → количество
+    # страниц считалось по пустому списку → страница всегда клампилась к 0
+    # (клик "›" был silent no-op, спека §5 не соблюдалась).
+    async def items_getter(**kwargs):
+        return {"items": [{"id": i, "title": f"Item {i}"} for i in range(1, 31)]}
+
+    dialog = Dialog(
+        Window(
+            Const("Catalog:"),
+            ScrollingGroup(
+                Select(
+                    Format("{item[title]}"),
+                    id="select_item",
+                    item_id_getter=lambda item: item["id"],
+                    items="items",
+                ),
+                id="sc",
+                height=5,
+                width=1,
+            ),
+            state=CatalogSG.items,
+            getter=items_getter,
+        ),
+    )
+    bot = Bot("token")
+    setup_dialogs(bot, dialog, storage=MemoryStorage(), api=fake_api)
+
+    @bot.on.message(NotInDialog(), text="/catalog")
+    async def start(message, dialog_manager):
+        await dialog_manager.start(CatalogSG.items, mode=StartMode.RESET_STACK)
+
+    await bot.router.route(raw_message_new("/catalog"), fake_api)
+    intent = intent_of(fake_api)
+
+    payload = json.loads(encode_payload(intent, "sc:1", None))
+    await bot.router.route(raw_message_event(payload), fake_api)
+
+    deps = active_setup()
+    stack = await deps.proxy.load_stack(make_stack_key(99, 5, 5))
+    ctx = await deps.proxy.load_top(stack)
+    assert ctx.widget_data["sc"] == 1  # страница реально переключилась
+
+    kb = json.loads(fake_api.sent("messages.edit")[-1]["keyboard"])
+    first_label = kb["buttons"][0][0]["action"]["label"]
+    assert first_label == "Item 6"  # 2-я страница (height=5) начинается с 6-го
+
+
+async def test_dialog_level_getter_reaches_render(fake_api):
+    # Регрессия: Dialog(getter=) раньше был мёртвым параметром — Dialog.load_data
+    # не имел ни одного вызывающего, так что dialog-level геттер никогда не
+    # попадал ни в render, ни в callback-time данные.
+    async def dialog_getter(**kwargs):
+        return {"greeting": "Привет из dialog-геттера"}
+
+    dialog = Dialog(
+        Window(Format("{greeting}"), Button(Const("Ok"), id="ok"), state=SG.menu),
+        getter=dialog_getter,
+    )
+    bot = Bot("token")
+    setup_dialogs(bot, dialog, storage=MemoryStorage(), api=fake_api)
+
+    @bot.on.message(NotInDialog(), text="/start")
+    async def start(message, dialog_manager):
+        await dialog_manager.start(SG.menu, mode=StartMode.RESET_STACK)
+
+    await bot.router.route(raw_message_new("/start"), fake_api)
+    text = fake_api.sent("messages.send")[-1]["message"]
+    assert text == "Привет из dialog-геттера"
