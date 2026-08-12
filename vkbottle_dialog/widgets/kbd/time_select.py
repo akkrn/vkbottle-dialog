@@ -118,6 +118,14 @@ class ManagedTimeSelect:
         return time(int(hour), int(minute))
 
     def set_value(self, value: time) -> None:
+        slots = self._widget._slots()
+        target = f"{value.hour:02d}:{value.minute:02d}"
+        if target not in slots:
+            minutes = value.hour * 60 + value.minute
+            target = min(
+                slots,
+                key=lambda s: abs(int(s[:2]) * 60 + int(s[3:]) - minutes),
+            )
         state = dict(self._widget._state(self._manager))
-        state["value"] = f"{value.hour:02d}:{value.minute:02d}"
+        state["value"] = target
         self._widget.set_widget_data(self._manager, state)
