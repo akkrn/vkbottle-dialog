@@ -16,6 +16,7 @@ DATA = {"items": ITEMS}
 
 async def test_select_render_and_click(fake_manager_factory):
     m = fake_manager_factory(SG.a)
+    m._data = DATA  # process_callback валидирует item_id против load_data()
     clicked = []
 
     async def on_click(event, widget, manager, item_id):
@@ -34,6 +35,7 @@ async def test_select_render_and_click(fake_manager_factory):
 
 async def test_radio_str_contract(fake_manager_factory):
     m = fake_manager_factory(SG.a)
+    m._data = DATA
     radio = Radio(
         Format("✓ {item[name]}"),
         Format("{item[name]}"),
@@ -53,6 +55,7 @@ async def test_radio_str_contract(fake_manager_factory):
 
 async def test_multiselect_min_max(fake_manager_factory):
     m = fake_manager_factory(SG.a)
+    m._data = DATA
     ms = Multiselect(
         Format("✓{item[id]}"),
         Format("{item[id]}"),
@@ -89,6 +92,7 @@ async def test_checkbox(fake_manager_factory):
 
 async def test_multiselect_blocked_uncheck_silent(fake_manager_factory):
     m = fake_manager_factory(SG.a)
+    m._data = DATA
     calls = []
 
     async def on_state_changed(event, widget, manager, item_id):
@@ -114,3 +118,37 @@ async def test_multiselect_blocked_uncheck_silent(fake_manager_factory):
     assert m.current_context().widget_data["ms"] == ["1"]
     # on_state_changed must not fire (silent no-op)
     assert calls == []
+
+
+async def test_select_rejects_forged_item_id(fake_manager_factory):
+    # FIX I3 (спека §5, шаг 6): item_id из callback_data может быть подделан
+    # (произвольный id, не относящийся к текущему списку items) — виджет
+    # обязан отвергнуть его молча, без записи в widget_data и без on_click.
+    m = fake_manager_factory(SG.a)
+    m._data = DATA  # items = [1, 2]
+    clicked = []
+
+    async def on_click(event, widget, manager, item_id):
+        clicked.append(item_id)
+
+    sel = Select(
+        Format("{item[name]}"), id="s", item_id_getter=GET_ID, items="items", on_click=on_click
+    )
+    result = await sel.process_callback("s:999", m)
+    assert result is False
+    assert clicked == []
+
+
+async def test_radio_rejects_forged_item_id(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    m._data = DATA
+    radio = Radio(
+        Format("✓ {item[name]}"),
+        Format("{item[name]}"),
+        id="r",
+        item_id_getter=GET_ID,
+        items="items",
+    )
+    result = await radio.process_callback("r:999", m)
+    assert result is False
+    assert "r" not in m.current_context().widget_data

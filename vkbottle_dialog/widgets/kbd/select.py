@@ -38,6 +38,14 @@ class Select(Keyboard):
         return [[b] for b in buttons]
 
     async def _process_item_callback(self, item: str, manager: Any) -> bool:
+        # Валидация на уровне виджета (спека §5, шаг 6): item_id из
+        # callback_data может быть подделан (произвольная строка, не
+        # относящаяся к текущему списку items) — сверяем с реальными
+        # id-шниками из геттера, иначе молча игнорируем (не handled).
+        data = await manager.load_data() if hasattr(manager, "load_data") else {}
+        valid = {str(self._item_id_getter(i)) for i in self._items(data)}
+        if item not in valid:
+            return False
         await self._handle_click(item, manager)
         return True
 
