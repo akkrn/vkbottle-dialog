@@ -403,7 +403,13 @@ class Calendar(Keyboard):
                 delta = int(arg)
             except ValueError:
                 return False
-            self._set_state(manager, scope, _shift_month(offset, delta), 0)
+            try:
+                new_offset = _shift_month(offset, delta)
+            except (ValueError, OverflowError):
+                return False
+            if not (config.min_date.replace(day=1) <= new_offset <= config.max_date):
+                return True
+            self._set_state(manager, scope, new_offset, 0)
             return True
         if kind == "y":
             try:
@@ -412,9 +418,14 @@ class Calendar(Keyboard):
                 return False
             try:
                 new_offset = offset.replace(year=offset.year + delta)
-            except ValueError:
-                # Handle Feb 29 in leap year
-                new_offset = date(offset.year + delta, offset.month, 1)
+            except (ValueError, OverflowError):
+                try:
+                    # Handle Feb 29 in leap year
+                    new_offset = date(offset.year + delta, offset.month, 1)
+                except (ValueError, OverflowError):
+                    return False
+            if not (config.min_date.replace(day=1) <= new_offset <= config.max_date):
+                return True
             self._set_state(manager, scope, new_offset, 0)
             return True
         if kind == "p":
@@ -440,14 +451,14 @@ class Calendar(Keyboard):
             try:
                 year, month = rest.split("-")
                 target = date(int(year), int(month), 1)
-            except ValueError:
+            except (ValueError, OverflowError):
                 return False
             self._set_state(manager, CalendarScope.DAYS, target, 0)
             return True
         if kind == "months":
             try:
                 target = date(int(rest), 1, 1)
-            except ValueError:
+            except (ValueError, OverflowError):
                 return False
             self._set_state(manager, CalendarScope.MONTHS, target, 0)
             return True

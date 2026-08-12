@@ -73,6 +73,13 @@ async def test_date_click_and_validation(fake_manager_factory):
     assert picked == [date(2026, 8, 10)]  # битые клики без колбэков
 
 
+async def test_month_shift_overflow_returns_false_no_crash(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    cal = Calendar(id="cal", config=CFG)
+    assert await cal.process_callback("cal:m:999999999", m) is False
+    assert await cal.process_callback(f"cal:m:{10**18}", m) is False
+
+
 async def test_user_config_merge(fake_manager_factory):
     merged = CFG.merge(CalendarUserConfig(min_date=date(2000, 1, 1)))
     assert merged.min_date == date(2000, 1, 1)

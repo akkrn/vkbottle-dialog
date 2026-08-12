@@ -63,3 +63,30 @@ async def test_noop_and_broken_zoom(fake_manager_factory):
     assert await cal.process_callback("cal:noop", m) is True
     assert await cal.process_callback("cal:z:bogus", m) is False
     assert await cal.process_callback("cal:z:days:20xx-99", m) is False
+
+
+async def test_year_shift_overflow_returns_false_no_crash(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    cal = Calendar(id="cal", config=CFG)
+    assert await cal.process_callback(f"cal:y:{10**18}", m) is False
+
+
+async def test_zoom_months_overflow_returns_false_no_crash(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    cal = Calendar(id="cal", config=CFG)
+    assert await cal.process_callback("cal:z:months:99999999999", m) is False
+
+
+async def test_zoom_days_overflow_returns_false_no_crash(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    cal = Calendar(id="cal", config=CFG)
+    assert await cal.process_callback("cal:z:days:99999999999-01", m) is False
+
+
+async def test_year_shift_clamped_at_min_date_is_silent_noop(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    cal = Calendar(id="cal", config=CFG)
+    managed = cal.managed(m)
+    managed.set_offset(date(1905, 6, 1))
+    assert await cal.process_callback("cal:y:-6", m) is True
+    assert managed.get_offset() == date(1905, 6, 1)
