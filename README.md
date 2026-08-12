@@ -88,7 +88,7 @@ vkbottle **не блокирует** события между views: `DialogVie
 
 ## Соответствие aiogram-dialog → vkbottle-dialog
 
-| aiogram-dialog | vkbottle-dialog (v0.1) | Статус |
+| aiogram-dialog | vkbottle-dialog (v0.2) | Статус |
 |---|---|---|
 | `Dialog`, `Window`, `DialogManager` | `Dialog`, `Window`, `DialogManager` | ✅ |
 | `Const`, `Format`, `Case`, `Multi`, `Or` | `Const`, `Format`, `Case`, `Multi`, `Or` | ✅ |
@@ -97,17 +97,30 @@ vkbottle **не блокирует** события между views: `DialogVie
 | `Select`, `Radio`, `Multiselect`, `Toggle`, `Checkbox` | то же самое | ✅ |
 | `ScrollingGroup` + пейджеры (`NumberedPager`, `FirstPage`/`PrevPage`/`CurrentPage`/`NextPage`/`LastPage`, `SwitchPage`) | то же самое | ✅ |
 | `MessageInput`, `TextInput` | `MessageInput`, `TextInput` | ✅ |
-| `Calendar` | — | 🗺️ роадмап |
-| `Counter` | — | 🗺️ роадмап |
+| `Calendar` | `Calendar` (COMPACT, WIDE) + `TimeSelect` | ✅ |
+| `Counter` | `Counter` | ✅ |
+| `ListGroup` | `List` (постраничный вывод `page_size`) | ✅ |
+| `Text` + `ScrollingGroup` | `ScrollingText` | ✅ |
+| Медиа-виджеты (`StaticMedia`) | `StaticMedia` + `MediaResolver` (кэш загрузок) | ✅ |
+| Jinja-шаблоны для текста | `Text.find` (условный форматинг) | ✅ |
 | `ListGroup`, `SubManager` | — | 🗺️ роадмап |
-| Медиа-виджеты (`StaticMedia`, `DynamicMedia`) | — | 🗺️ роадмап |
-| Jinja-шаблоны для текста | — | 🗺️ роадмап |
+| `DynamicMedia` | — | 🗺️ роадмап |
 | Карусель (media group) | — | 🗺️ роадмап |
 | `StartMode.NEW_STACK` | — | 🗺️ роадмап (пока `NotImplementedError`) |
 | `AccessSettings` | — | 🗺️ роадмап |
 | Мульти-инстанс (несколько `setup_dialogs` в процессе) | — | 🗺️ роадмап (сейчас один `setup_dialogs` на процесс) |
 
-## Ограничения v0.1
+## Календарь и лимиты VK
+
+**`Calendar` (v0.2):** два режима верстки —
+- **`CalendarLayout.COMPACT`** (по умолчанию): 6 дней в строке (3×2), пагинация; подходит для беседы (≤10 кнопок).
+- **`CalendarLayout.WIDE`**: весь месяц за раз (до 35 кнопок), ≤ 5 дней в строке; работает **только в личных сообщениях** (в беседе упадёт с `DialogConfigError`).
+
+**`TimeSelect` (v0.2):** выбор часа/минуты попиксельно, укладывается в лимит 10 кнопок.
+
+**Медиа в диалогах (v0.2):** `StaticMedia` + `MediaResolver` (кэширование attachment-строк за сессию). При отсутствии доступа к медиа вложение деградирует без ошибки; перед продом проверьте доступ кросс-peer (группа ↔ личные сообщения) ручным смоуком.
+
+## Ограничения v0.2
 
 - **Single-instance.** На процесс можно вызвать `setup_dialogs()` один раз — `InDialog()`/
   `NotInDialog()` резолвятся late-binding к последнему активному сетапу.
@@ -115,7 +128,7 @@ vkbottle **не блокирует** события между views: `DialogVie
   `NotImplementedError`. Используйте `StartMode.NORMAL` или `StartMode.RESET_STACK`.
 - **`TextKeyboardFactory` работает только в личных сообщениях.** В беседах нижняя (не-инлайн)
   клавиатура общая на весь чат, поэтому рендер диалога с текстовой клавиатурой в беседе — ошибка
-  конфигурации (`DialogConfigError`).
+  конфигурации (`DialogConfigError`). **То же верно для `CalendarLayout.WIDE`** — в беседе используйте только `COMPACT`.
 - **24-часовое окно редактирования сообщений VK.** Диалог обновляет своё окно, редактируя одно и то
   же сообщение; когда VK перестаёт разрешать правку (окно устарело), пользователь при клике по
   устаревшей клавиатуре увидит снекбар «Окно устарело, начните заново» вместо тихого зависания

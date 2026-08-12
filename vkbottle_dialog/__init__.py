@@ -5,7 +5,7 @@ from .integration.setup import setup_dialogs
 from .manager.manager import ManagerImpl as DialogManager
 from .window import Window
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "CancelEventProcessing",
     "Dialog",

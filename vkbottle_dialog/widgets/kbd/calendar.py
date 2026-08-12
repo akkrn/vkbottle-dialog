@@ -50,7 +50,7 @@ class CalendarScope(str, Enum):
 
 class CalendarLayout(str, Enum):
     COMPACT = "compact"
-    WIDE = "wide"
+    WIDE = "wide"  # DM-only; full month; raises DialogConfigError in chats
 
 
 @dataclass

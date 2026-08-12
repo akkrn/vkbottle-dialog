@@ -1,6 +1,6 @@
 [project]
 name = "vkbottle-dialog"
-version = "0.1.0"
+version = "0.2.0"
 description = "Declarative dialogs for VK bots on top of vkbottle (aiogram-dialog port)"
 readme = "README.md"
 license = "Apache-2.0"
@@ -16,7 +16,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries",
 ]
-dependencies = ["vkbottle>=4.5", "magic-filter>=1.0"]
+dependencies = ["vkbottle>=4.10", "magic-filter>=1.0"]
 
 [project.optional-dependencies]
 redis = ["redis>=5.0"]
