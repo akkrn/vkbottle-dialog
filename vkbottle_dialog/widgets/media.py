@@ -37,6 +37,8 @@ class StaticMedia(Media):
         when: WhenCondition = None,
     ) -> None:
         super().__init__(when)
+        if path is None and url is None:
+            raise DialogConfigError("StaticMedia: задайте path или url")
         if path is not None and url is not None:
             raise DialogConfigError("StaticMedia: задайте либо path, либо url, не оба")
         self._path = _ensure_text(path)
