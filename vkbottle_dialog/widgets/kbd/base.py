@@ -44,7 +44,7 @@ class Keyboard(Actionable, Whenable):
             return await self._process_own_callback(manager)
         prefix = f"{self.widget_id}:"
         if self.widget_id is not None and callback_data.startswith(prefix):
-            return await self._process_item_callback(callback_data[len(prefix):], manager)
+            return await self._process_item_callback(callback_data[len(prefix) :], manager)
         return await self._process_other_callback(callback_data, manager)
 
     async def _process_own_callback(self, manager: Any) -> bool:

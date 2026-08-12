@@ -9,9 +9,15 @@ from .base import Keyboard, RawKeyboard, VKButton
 
 
 class Select(Keyboard):
-    def __init__(self, text: Text, id: str, item_id_getter: Callable[[Any], Any],
-                 items: Any, on_click: Callable | None = None,
-                 when: WhenCondition = None) -> None:
+    def __init__(
+        self,
+        text: Text,
+        id: str,
+        item_id_getter: Callable[[Any], Any],
+        items: Any,
+        on_click: Callable | None = None,
+        when: WhenCondition = None,
+    ) -> None:
         super().__init__(id, when)
         self._text = text
         self._item_id_getter = item_id_getter
@@ -22,11 +28,13 @@ class Select(Keyboard):
         buttons = []
         for pos, item in enumerate(self._items(data)):
             scoped = {"data": data, "item": item, "pos": pos + 1, "pos0": pos}
-            buttons.append(VKButton(
-                action="callback",
-                label=await self._text.render_text(scoped, manager),
-                callback_data=f"{self.widget_id}:{self._item_id_getter(item)}",
-            ))
+            buttons.append(
+                VKButton(
+                    action="callback",
+                    label=await self._text.render_text(scoped, manager),
+                    callback_data=f"{self.widget_id}:{self._item_id_getter(item)}",
+                )
+            )
         return [[b] for b in buttons]
 
     async def _process_item_callback(self, item: str, manager: Any) -> bool:
@@ -38,11 +46,18 @@ class Select(Keyboard):
 
 
 class Radio(Select):
-    def __init__(self, checked_text: Text, unchecked_text: Text, id: str,
-                 item_id_getter: Callable, items: Any, type_factory: Callable = str,
-                 on_click: Callable | None = None,
-                 on_state_changed: Callable | None = None,
-                 when: WhenCondition = None) -> None:
+    def __init__(
+        self,
+        checked_text: Text,
+        unchecked_text: Text,
+        id: str,
+        item_id_getter: Callable,
+        items: Any,
+        type_factory: Callable = str,
+        on_click: Callable | None = None,
+        on_state_changed: Callable | None = None,
+        when: WhenCondition = None,
+    ) -> None:
         super().__init__(unchecked_text, id, item_id_getter, items, on_click, when)
         self._checked_text = checked_text
         self._type_factory = type_factory
@@ -55,14 +70,15 @@ class Radio(Select):
         buttons = []
         for pos, item in enumerate(self._items(data)):
             item_id = self._item_id_getter(item)
-            text = (self._checked_text if self._is_checked(item_id, manager)
-                    else self._text)
+            text = self._checked_text if self._is_checked(item_id, manager) else self._text
             scoped = {"data": data, "item": item, "pos": pos + 1, "pos0": pos}
-            buttons.append(VKButton(
-                action="callback",
-                label=await text.render_text(scoped, manager),
-                callback_data=f"{self.widget_id}:{item_id}",
-            ))
+            buttons.append(
+                VKButton(
+                    action="callback",
+                    label=await text.render_text(scoped, manager),
+                    callback_data=f"{self.widget_id}:{item_id}",
+                )
+            )
         return [[b] for b in buttons]
 
     async def _handle_click(self, item_id: str, manager: Any) -> None:
@@ -91,14 +107,31 @@ class ManagedRadio:
 
 
 class Multiselect(Radio):
-    def __init__(self, checked_text: Text, unchecked_text: Text, id: str,
-                 item_id_getter: Callable, items: Any, min_selected: int = 0,
-                 max_selected: int = 0, type_factory: Callable = str,
-                 on_click: Callable | None = None,
-                 on_state_changed: Callable | None = None,
-                 when: WhenCondition = None) -> None:
-        super().__init__(checked_text, unchecked_text, id, item_id_getter, items,
-                         type_factory, on_click, on_state_changed, when)
+    def __init__(
+        self,
+        checked_text: Text,
+        unchecked_text: Text,
+        id: str,
+        item_id_getter: Callable,
+        items: Any,
+        min_selected: int = 0,
+        max_selected: int = 0,
+        type_factory: Callable = str,
+        on_click: Callable | None = None,
+        on_state_changed: Callable | None = None,
+        when: WhenCondition = None,
+    ) -> None:
+        super().__init__(
+            checked_text,
+            unchecked_text,
+            id,
+            item_id_getter,
+            items,
+            type_factory,
+            on_click,
+            on_state_changed,
+            when,
+        )
         self._min = min_selected
         self._max = max_selected
 
@@ -129,8 +162,9 @@ class ManagedMultiselect:
         self._manager = manager
 
     def get_checked(self) -> list:
-        return [self._widget._type_factory(i)
-                for i in self._widget.get_widget_data(self._manager, [])]
+        return [
+            self._widget._type_factory(i) for i in self._widget.get_widget_data(self._manager, [])
+        ]
 
     def is_checked(self, item_id: Any) -> bool:
         return self._widget._is_checked(item_id, self._manager)
@@ -149,10 +183,15 @@ class ManagedMultiselect:
 
 
 class Toggle(Keyboard):
-    def __init__(self, text: Text, id: str, items: Any,
-                 item_id_getter: Callable = str,
-                 on_state_changed: Callable | None = None,
-                 when: WhenCondition = None) -> None:
+    def __init__(
+        self,
+        text: Text,
+        id: str,
+        items: Any,
+        item_id_getter: Callable = str,
+        on_state_changed: Callable | None = None,
+        when: WhenCondition = None,
+    ) -> None:
         super().__init__(id, when)
         self._text = text
         self._items = get_items_getter(items)
@@ -171,9 +210,15 @@ class Toggle(Keyboard):
         if not items:
             return []
         scoped = {"data": data, "item": items[pos], "pos": pos + 1, "pos0": pos}
-        return [[VKButton(action="callback",
-                          label=await self._text.render_text(scoped, manager),
-                          callback_data=self.widget_id)]]
+        return [
+            [
+                VKButton(
+                    action="callback",
+                    label=await self._text.render_text(scoped, manager),
+                    callback_data=self.widget_id,
+                )
+            ]
+        ]
 
     async def _process_own_callback(self, manager: Any) -> bool:
         data = await manager.load_data() if hasattr(manager, "load_data") else {}
@@ -199,9 +244,15 @@ class ManagedToggle:
 
 
 class Checkbox(Keyboard):
-    def __init__(self, checked_text: Text, unchecked_text: Text, id: str,
-                 default: bool = False, on_state_changed: Callable | None = None,
-                 when: WhenCondition = None) -> None:
+    def __init__(
+        self,
+        checked_text: Text,
+        unchecked_text: Text,
+        id: str,
+        default: bool = False,
+        on_state_changed: Callable | None = None,
+        when: WhenCondition = None,
+    ) -> None:
         super().__init__(id, when)
         self._checked_text = checked_text
         self._unchecked_text = unchecked_text
@@ -213,9 +264,15 @@ class Checkbox(Keyboard):
 
     async def _render_keyboard(self, data: dict, manager: Any) -> RawKeyboard:
         text = self._checked_text if self._is_checked(manager) else self._unchecked_text
-        return [[VKButton(action="callback",
-                          label=await text.render_text(data, manager),
-                          callback_data=self.widget_id)]]
+        return [
+            [
+                VKButton(
+                    action="callback",
+                    label=await text.render_text(data, manager),
+                    callback_data=self.widget_id,
+                )
+            ]
+        ]
 
     async def _process_own_callback(self, manager: Any) -> bool:
         new = not self._is_checked(manager)

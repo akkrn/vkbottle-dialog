@@ -21,8 +21,9 @@ async def test_select_render_and_click(fake_manager_factory):
     async def on_click(event, widget, manager, item_id):
         clicked.append(item_id)
 
-    sel = Select(Format("{item[name]}"), id="s", item_id_getter=GET_ID,
-                 items="items", on_click=on_click)
+    sel = Select(
+        Format("{item[name]}"), id="s", item_id_getter=GET_ID, items="items", on_click=on_click
+    )
     kb = await sel.render_keyboard(DATA, m)
     labels = [b.label for row in kb for b in row]
     cds = [b.callback_data for row in kb for b in row]
@@ -33,8 +34,14 @@ async def test_select_render_and_click(fake_manager_factory):
 
 async def test_radio_str_contract(fake_manager_factory):
     m = fake_manager_factory(SG.a)
-    radio = Radio(Format("✓ {item[name]}"), Format("{item[name]}"), id="r",
-                  item_id_getter=GET_ID, items="items", type_factory=int)
+    radio = Radio(
+        Format("✓ {item[name]}"),
+        Format("{item[name]}"),
+        id="r",
+        item_id_getter=GET_ID,
+        items="items",
+        type_factory=int,
+    )
     await radio.process_callback("r:2", m)
     assert m.current_context().widget_data["r"] == "2"  # строка!
     managed = radio.managed(m)
@@ -46,8 +53,14 @@ async def test_radio_str_contract(fake_manager_factory):
 
 async def test_multiselect_min_max(fake_manager_factory):
     m = fake_manager_factory(SG.a)
-    ms = Multiselect(Format("✓{item[id]}"), Format("{item[id]}"), id="ms",
-                     item_id_getter=GET_ID, items="items", max_selected=1)
+    ms = Multiselect(
+        Format("✓{item[id]}"),
+        Format("{item[id]}"),
+        id="ms",
+        item_id_getter=GET_ID,
+        items="items",
+        max_selected=1,
+    )
     await ms.process_callback("ms:1", m)
     await ms.process_callback("ms:2", m)  # max=1 — игнор
     assert m.current_context().widget_data["ms"] == ["1"]
@@ -81,9 +94,15 @@ async def test_multiselect_blocked_uncheck_silent(fake_manager_factory):
     async def on_state_changed(event, widget, manager, item_id):
         calls.append(("on_state_changed", item_id))
 
-    ms = Multiselect(Format("✓{item[id]}"), Format("{item[id]}"), id="ms",
-                     item_id_getter=GET_ID, items="items", min_selected=1,
-                     on_state_changed=on_state_changed)
+    ms = Multiselect(
+        Format("✓{item[id]}"),
+        Format("{item[id]}"),
+        id="ms",
+        item_id_getter=GET_ID,
+        items="items",
+        min_selected=1,
+        on_state_changed=on_state_changed,
+    )
     # Check one item
     await ms.process_callback("ms:1", m)
     assert m.current_context().widget_data["ms"] == ["1"]

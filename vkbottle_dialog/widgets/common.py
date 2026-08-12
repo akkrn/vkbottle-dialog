@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import inspect
 import re
-from typing import Any, Callable, Sequence, Union
+from collections.abc import Callable, Sequence
+from typing import Any
 
 from magic_filter import MagicFilter
 
 from ..exceptions import DialogConfigError
 
 WIDGET_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_.]+$")
-WhenCondition = Union[str, MagicFilter, Callable, None]
+WhenCondition = str | MagicFilter | Callable | None
 
 
 class Whenable:
@@ -72,19 +73,25 @@ def ensure_event_processor(handler: Callable | None) -> WidgetEventProcessor:
 
 def ensure_data_getter(getter: Any) -> Callable:
     if getter is None:
+
         async def empty(**kwargs: Any) -> dict:
             return {}
+
         return empty
     if isinstance(getter, dict):
+
         async def const(**kwargs: Any) -> dict:
             return dict(getter)
+
         return const
     if callable(getter):
+
         async def call(**kwargs: Any) -> dict:
             result = getter(**kwargs)
             if inspect.isawaitable(result):
                 result = await result
             return result or {}
+
         return call
     raise DialogConfigError(f"не понимаю getter: {getter!r}")
 

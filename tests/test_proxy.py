@@ -1,6 +1,6 @@
 import pytest
 
-from vkbottle_dialog.api.entities import Stack, make_stack_key
+from vkbottle_dialog.api.entities import make_stack_key
 from vkbottle_dialog.context.memory import MemoryStorage
 from vkbottle_dialog.context.proxy import StorageProxy
 from vkbottle_dialog.exceptions import UnknownIntent

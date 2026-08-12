@@ -60,8 +60,12 @@ async def test_nav_buttons(fake_manager_factory):
 
 async def test_group_layouts_and_forwarding(fake_manager_factory):
     m = fake_manager_factory(SG.a)
-    g = Group(Button(Const("1"), id="b1"), Button(Const("2"), id="b2"),
-              Button(Const("3"), id="b3"), width=2)
+    g = Group(
+        Button(Const("1"), id="b1"),
+        Button(Const("2"), id="b2"),
+        Button(Const("3"), id="b3"),
+        width=2,
+    )
     kb = await g.render_keyboard({}, m)
     assert [[b.label for b in row] for row in kb] == [["1", "2"], ["3"]]
 

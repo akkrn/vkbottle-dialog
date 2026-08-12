@@ -6,5 +6,14 @@ from .manager.manager import ManagerImpl as DialogManager
 from .window import Window
 
 __version__ = "0.1.0"
-__all__ = ["CancelEventProcessing", "Dialog", "DialogManager", "LaunchMode",
-           "ShowMode", "StartMode", "Window", "setup_dialogs", "__version__"]
+__all__ = [
+    "CancelEventProcessing",
+    "Dialog",
+    "DialogManager",
+    "LaunchMode",
+    "ShowMode",
+    "StartMode",
+    "Window",
+    "setup_dialogs",
+    "__version__",
+]

@@ -36,19 +36,23 @@ class AnswerLatch:
         self._peer_id = peer_id
         self.answered = False
 
-    async def answer(self, snackbar: str | None = None,
-                     open_link: str | None = None) -> bool:
+    async def answer(self, snackbar: str | None = None, open_link: str | None = None) -> bool:
         if self.answered:
             return False
         self.answered = True
-        params: dict = {"event_id": self._event_id, "user_id": self._user_id,
-                        "peer_id": self._peer_id}
+        params: dict = {
+            "event_id": self._event_id,
+            "user_id": self._user_id,
+            "peer_id": self._peer_id,
+        }
         if snackbar is not None:
             params["event_data"] = json.dumps(
-                {"type": "show_snackbar", "text": snackbar}, ensure_ascii=False)
+                {"type": "show_snackbar", "text": snackbar}, ensure_ascii=False
+            )
         elif open_link is not None:
             params["event_data"] = json.dumps(
-                {"type": "open_link", "link": open_link}, ensure_ascii=False)
+                {"type": "open_link", "link": open_link}, ensure_ascii=False
+            )
         await self._api.request("messages.sendMessageEventAnswer", params)
         return True
 
@@ -61,9 +65,17 @@ class DialogView(ABCView):
     а обёрткой ``labeler.views`` в ``setup_dialogs``.
     """
 
-    def __init__(self, *, registry: Any, proxy: StorageProxy, locks: LockRegistry,
-                 config: DialogConfig, bg_factory: Any,
-                 on_unknown_intent: Any = None, on_unknown_state: Any = None) -> None:
+    def __init__(
+        self,
+        *,
+        registry: Any,
+        proxy: StorageProxy,
+        locks: LockRegistry,
+        config: DialogConfig,
+        bg_factory: Any,
+        on_unknown_intent: Any = None,
+        on_unknown_state: Any = None,
+    ) -> None:
         super().__init__()
         self.registry = registry
         self.proxy = proxy
@@ -89,8 +101,14 @@ class DialogView(ABCView):
             raw_payload = obj.get("payload")
             client_info = {}
         owner_id = from_id if peer_id >= PEER_ID_OFFSET else peer_id
-        ev = EventContext(group_id=event.get("group_id", 0), peer_id=peer_id,
-                          owner_id=owner_id, user_id=from_id, kind=kind, raw=obj)
+        ev = EventContext(
+            group_id=event.get("group_id", 0),
+            peer_id=peer_id,
+            owner_id=owner_id,
+            user_id=from_id,
+            kind=kind,
+            raw=obj,
+        )
         self.bg_factory.set_group_id(ev.group_id)
 
         latch = None
@@ -122,15 +140,22 @@ class DialogView(ABCView):
                 return
             if context is None:  # message_new без payload при активном диалоге
                 context = await self._load_top_or_recover(
-                    ev, stack, message_manager, ctx_api, latch)
+                    ev, stack, message_manager, ctx_api, latch
+                )
                 if context is None:
                     return
 
             manager = ManagerImpl(
-                event_ctx=ev, registry=self.registry, proxy=self.proxy,
-                message_manager=message_manager, locks=self.locks,
-                config=self.config, stack=stack, context=context,
-                event=obj, middleware_data={"ctx_api": ctx_api},
+                event_ctx=ev,
+                registry=self.registry,
+                proxy=self.proxy,
+                message_manager=message_manager,
+                locks=self.locks,
+                config=self.config,
+                stack=stack,
+                context=context,
+                event=obj,
+                middleware_data={"ctx_api": ctx_api},
             )
             manager._answer_latch = latch
             try:
@@ -158,31 +183,38 @@ class DialogView(ABCView):
             raise InvalidPayload("context.stack_key != стек события")
         return context
 
-    async def _load_top_or_recover(self, ev: EventContext, stack: Any,
-                                   mm: MessageManager, ctx_api: Any,
-                                   latch: AnswerLatch | None) -> Any:
+    async def _load_top_or_recover(
+        self,
+        ev: EventContext,
+        stack: Any,
+        mm: MessageManager,
+        ctx_api: Any,
+        latch: AnswerLatch | None,
+    ) -> Any:
         try:
             return await self.proxy.load_top(stack)
         except (UnknownIntent, UnknownState) as e:
             await self._recover(e, ev, stack, mm, ctx_api, latch)
             return None
 
-    async def _dispatch(self, manager: ManagerImpl, parsed: ParsedPayload | None,
-                        kind: str, obj: dict) -> bool:
+    async def _dispatch(
+        self, manager: ManagerImpl, parsed: ParsedPayload | None, kind: str, obj: dict
+    ) -> bool:
         dialog = manager.dialog()
         if parsed is not None:
             return await dialog.process_callback(parsed.callback_data, manager)
         msg = obj["message"]
         message = SimpleNamespace(
             text=msg.get("text", ""),
-            attachments=[SimpleNamespace(**a) if isinstance(a, dict) else a
-                         for a in msg.get("attachments", [])],
+            attachments=[
+                SimpleNamespace(**a) if isinstance(a, dict) else a
+                for a in msg.get("attachments", [])
+            ],
             raw=msg,
         )
         return await dialog.process_message(message, manager)
 
-    def _need_refresh(self, manager: ManagerImpl, original_ctx: Any,
-                      processed: bool) -> bool:
+    def _need_refresh(self, manager: ManagerImpl, original_ctx: Any, processed: bool) -> bool:
         # порт Dialog._need_refresh (спека §5, шаг 8)
         if not manager.has_context():
             return False
@@ -196,18 +228,32 @@ class DialogView(ABCView):
         if latch is not None:
             await latch.answer(snackbar=self.config.stale_snackbar)
 
-    async def _recover(self, error: DialogError, ev: EventContext, stack: Any,
-                       message_manager: MessageManager, ctx_api: Any,
-                       latch: AnswerLatch | None) -> None:
+    async def _recover(
+        self,
+        error: DialogError,
+        ev: EventContext,
+        stack: Any,
+        message_manager: MessageManager,
+        ctx_api: Any,
+        latch: AnswerLatch | None,
+    ) -> None:
         logger.debug("dialog recover: %r", error)
         await self.proxy.repair(stack)
-        handler = (self.on_unknown_state if isinstance(error, UnknownState)
-                   else self.on_unknown_intent)
+        handler = (
+            self.on_unknown_state if isinstance(error, UnknownState) else self.on_unknown_intent
+        )
         if handler is not None:
-            manager = ManagerImpl(event_ctx=ev, registry=self.registry,
-                                  proxy=self.proxy, message_manager=message_manager,
-                                  locks=self.locks, config=self.config,
-                                  stack=stack, context=None, event=ev.raw)
+            manager = ManagerImpl(
+                event_ctx=ev,
+                registry=self.registry,
+                proxy=self.proxy,
+                message_manager=message_manager,
+                locks=self.locks,
+                config=self.config,
+                stack=stack,
+                context=None,
+                event=ev.raw,
+            )
             manager._answer_latch = latch
             await handler(ev.raw, manager)
             await manager.commit()

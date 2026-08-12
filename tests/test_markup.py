@@ -17,9 +17,10 @@ def cb(label, data, color=None):
 
 
 def test_inline_render():
-    raw = [[cb("Да", "yes", ButtonColor.POSITIVE)],
-           [VKButton(action="open_link", label="Site", callback_data=None,
-                     link="https://e.com")]]
+    raw = [
+        [cb("Да", "yes", ButtonColor.POSITIVE)],
+        [VKButton(action="open_link", label="Site", callback_data=None, link="https://e.com")],
+    ]
     rendered = InlineKeyboardFactory().render(raw, "IntentIdAb1", None)
     assert rendered.kind is KeyboardKind.INLINE
     doc = json.loads(rendered.json)

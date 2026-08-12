@@ -7,8 +7,13 @@ from .base import Keyboard, RawKeyboard
 
 
 class Group(Keyboard):
-    def __init__(self, *kbds: Keyboard, width: int | None = None,
-                 id: str | None = None, when: WhenCondition = None) -> None:
+    def __init__(
+        self,
+        *kbds: Keyboard,
+        width: int | None = None,
+        id: str | None = None,
+        when: WhenCondition = None,
+    ) -> None:
         super().__init__(id, when)
         self._kbds = kbds
         self._width = width
@@ -43,12 +48,10 @@ class Group(Keyboard):
 
 
 class Row(Group):
-    def __init__(self, *kbds: Keyboard, id: str | None = None,
-                 when: WhenCondition = None) -> None:
+    def __init__(self, *kbds: Keyboard, id: str | None = None, when: WhenCondition = None) -> None:
         super().__init__(*kbds, width=9999, id=id, when=when)
 
 
 class Column(Group):
-    def __init__(self, *kbds: Keyboard, id: str | None = None,
-                 when: WhenCondition = None) -> None:
+    def __init__(self, *kbds: Keyboard, id: str | None = None, when: WhenCondition = None) -> None:
         super().__init__(*kbds, width=1, id=id, when=when)

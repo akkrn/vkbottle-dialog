@@ -67,7 +67,8 @@ def build_world(fake_api):
     states.register(SubSG)
     proxy = StorageProxy(MemoryStorage(), states)
     deps = dict(
-        registry=Registry(), proxy=proxy,
+        registry=Registry(),
+        proxy=proxy,
         message_manager=MessageManager(fake_api),
         locks=LockRegistry(),
         config=DialogConfig(secret=None, now=lambda: 1000.0),
@@ -78,10 +79,8 @@ def build_world(fake_api):
 def build_launch_mode_world(fake_api):
     main = Dialog(Window(Const("A"), state=MainSG.a), Window(Const("B"), state=MainSG.b))
     root = Dialog(Window(Const("R"), state=RootSG.r), launch_mode=LaunchMode.ROOT)
-    exclusive = Dialog(Window(Const("E"), state=ExclusiveSG.e),
-                       launch_mode=LaunchMode.EXCLUSIVE)
-    single_top = Dialog(Window(Const("S"), state=SingleTopSG.s),
-                        launch_mode=LaunchMode.SINGLE_TOP)
+    exclusive = Dialog(Window(Const("E"), state=ExclusiveSG.e), launch_mode=LaunchMode.EXCLUSIVE)
+    single_top = Dialog(Window(Const("S"), state=SingleTopSG.s), launch_mode=LaunchMode.SINGLE_TOP)
     dialogs = {MainSG: main, RootSG: root, ExclusiveSG: exclusive, SingleTopSG: single_top}
 
     class Registry:
@@ -96,7 +95,8 @@ def build_launch_mode_world(fake_api):
         states.register(group)
     proxy = StorageProxy(MemoryStorage(), states)
     return dict(
-        registry=Registry(), proxy=proxy,
+        registry=Registry(),
+        proxy=proxy,
         message_manager=MessageManager(fake_api),
         locks=LockRegistry(),
         config=DialogConfig(secret=None, now=lambda: 1000.0),
@@ -104,8 +104,7 @@ def build_launch_mode_world(fake_api):
 
 
 def ev(kind="message_event"):
-    return EventContext(group_id=1, peer_id=5, owner_id=5, user_id=5,
-                        kind=kind, raw=None)
+    return EventContext(group_id=1, peer_id=5, owner_id=5, user_id=5, kind=kind, raw=None)
 
 
 async def make_manager(deps, event=None):

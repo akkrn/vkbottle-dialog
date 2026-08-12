@@ -17,8 +17,9 @@ class MessageManager:
     def __init__(self, api: Any) -> None:
         self._api = api
 
-    async def show_message(self, new: NewMessage, stack: Stack, *,
-                           trigger: str, now: float) -> None:
+    async def show_message(
+        self, new: NewMessage, stack: Stack, *, trigger: str, now: float
+    ) -> None:
         mode: ShowMode | None = new.show_mode
         if mode == ShowMode.AUTO:
             mode = self._auto_mode(new, stack, trigger, now)
@@ -33,8 +34,9 @@ class MessageManager:
             await self._delete_old(stack, new.peer_id)
             await self._send(new, stack, now)
 
-    def _auto_mode(self, new: NewMessage, stack: Stack, trigger: str,
-                   now: float) -> ShowMode | None:
+    def _auto_mode(
+        self, new: NewMessage, stack: Stack, trigger: str, now: float
+    ) -> ShowMode | None:
         # Нормативный порядок ветвления — спека §6.
         if stack.last_cmid is None:
             return ShowMode.SEND
@@ -50,9 +52,11 @@ class MessageManager:
         return ShowMode.SEND
 
     def _editable(self, stack: Stack, now: float) -> bool:
-        return (stack.last_cmid is not None
-                and stack.last_message_sent_at is not None
-                and now - stack.last_message_sent_at < EDIT_WINDOW_SECONDS)
+        return (
+            stack.last_cmid is not None
+            and stack.last_message_sent_at is not None
+            and now - stack.last_message_sent_at < EDIT_WINDOW_SECONDS
+        )
 
     async def _edit_or_send(self, new: NewMessage, stack: Stack, now: float) -> None:
         if not self._editable(stack, now):
@@ -98,14 +102,17 @@ class MessageManager:
         stack.last_text = new.text
 
     async def _strip_old_kbd(self, stack: Stack, peer_id: int, now: float) -> None:
-        if (stack.last_keyboard_kind is not KeyboardKind.INLINE
-                or not self._editable(stack, now)):
+        if stack.last_keyboard_kind is not KeyboardKind.INLINE or not self._editable(stack, now):
             return
         try:
-            await self._api.request("messages.edit", {
-                "peer_id": peer_id, "cmid": stack.last_cmid,
-                "message": stack.last_text or " ",  # старый текст сохраняем
-            })
+            await self._api.request(
+                "messages.edit",
+                {
+                    "peer_id": peer_id,
+                    "cmid": stack.last_cmid,
+                    "message": stack.last_text or " ",  # старый текст сохраняем
+                },
+            )
         except VKAPIError as e:
             logger.debug("strip kbd failed: %s", e)
 
@@ -113,24 +120,38 @@ class MessageManager:
         if stack.last_cmid is None:
             return
         try:
-            await self._api.request("messages.delete", {
-                "peer_id": peer_id, "cmids": [stack.last_cmid], "delete_for_all": 1,
-            })
+            await self._api.request(
+                "messages.delete",
+                {
+                    "peer_id": peer_id,
+                    "cmids": [stack.last_cmid],
+                    "delete_for_all": 1,
+                },
+            )
         except VKAPIError as e:
             logger.debug("delete failed: %s — окно останется мёртвым", e)
 
     async def remove_kbd(self, stack: Stack, peer_id: int, *, now: float) -> None:
         if stack.last_keyboard_kind is KeyboardKind.INLINE and self._editable(stack, now):
             try:
-                await self._api.request("messages.edit", {
-                    "peer_id": peer_id, "cmid": stack.last_cmid,
-                    "message": stack.last_text or " ",
-                })
+                await self._api.request(
+                    "messages.edit",
+                    {
+                        "peer_id": peer_id,
+                        "cmid": stack.last_cmid,
+                        "message": stack.last_text or " ",
+                    },
+                )
             except VKAPIError as e:
                 logger.debug("remove_kbd failed: %s", e)
         elif stack.last_keyboard_kind is KeyboardKind.TEXT:
-            await self._api.request("messages.send", {
-                "peer_ids": [peer_id], "random_id": secrets.randbelow(2**31),
-                "message": "✓", "keyboard": EMPTY_KEYBOARD_JSON,
-            })
+            await self._api.request(
+                "messages.send",
+                {
+                    "peer_ids": [peer_id],
+                    "random_id": secrets.randbelow(2**31),
+                    "message": "✓",
+                    "keyboard": EMPTY_KEYBOARD_JSON,
+                },
+            )
         stack.clear_message()

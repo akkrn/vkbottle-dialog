@@ -21,17 +21,18 @@ class OtherSG(StatesGroup):
 
 
 def ls_event():
-    return EventContext(group_id=1, peer_id=5, owner_id=5, user_id=5,
-                        kind="message_new", raw=None)
+    return EventContext(group_id=1, peer_id=5, owner_id=5, user_id=5, kind="message_new", raw=None)
 
 
 def chat_event():
-    return EventContext(group_id=1, peer_id=2_000_000_001, owner_id=7, user_id=7,
-                        kind="message_new", raw=None)
+    return EventContext(
+        group_id=1, peer_id=2_000_000_001, owner_id=7, user_id=7, kind="message_new", raw=None
+    )
 
 
 class RenderManager:
     """FakeManager с load_data для рендера (см. conftest — расширить базовый)."""
+
     def __init__(self, ctx):
         self._ctx = ctx
         self.event = None
@@ -53,6 +54,7 @@ async def test_window_render(fake_manager_factory):
     )
     dlg = Dialog(win, Window(Const("2"), state=SG.second))
     from vkbottle_dialog.api.entities import Stack, make_stack_key
+
     stack = Stack(key=make_stack_key(1, 5, 5))
     ctx = stack.push(SG.first, None)
     m = RenderManager(ctx)
@@ -62,31 +64,34 @@ async def test_window_render(fake_manager_factory):
 
 
 async def test_text_keyboard_forbidden_in_chat():
-    win = Window(Const("x"), Button(Const("b"), id="b"), state=SG.first,
-                 markup_factory=TextKeyboardFactory())
+    win = Window(
+        Const("x"),
+        Button(Const("b"), id="b"),
+        state=SG.first,
+        markup_factory=TextKeyboardFactory(),
+    )
     dlg = Dialog(win, Window(Const("2"), state=SG.second))
     from vkbottle_dialog.api.entities import Stack, make_stack_key
+
     stack = Stack(key=make_stack_key(1, 2_000_000_001, 7))
     ctx = stack.push(SG.first, None)
     with pytest.raises(DialogConfigError):
-        await dlg.render(RenderManager(ctx), chat_event(), ctx.intent_id, None,
-                         InlineKeyboardFactory())
+        await dlg.render(
+            RenderManager(ctx), chat_event(), ctx.intent_id, None, InlineKeyboardFactory()
+        )
 
 
 def test_dialog_validation():
     with pytest.raises(DialogConfigError):
         Dialog()
     with pytest.raises(DialogConfigError):
-        Dialog(Window(Const("a"), state=SG.first),
-               Window(Const("b"), state=OtherSG.x))
+        Dialog(Window(Const("a"), state=SG.first), Window(Const("b"), state=OtherSG.x))
     with pytest.raises(DialogConfigError):
-        Dialog(Window(Const("a"), state=SG.first),
-               Window(Const("b"), state=SG.first))
+        Dialog(Window(Const("a"), state=SG.first), Window(Const("b"), state=SG.first))
 
 
 def test_dialog_states_and_window_for():
-    dlg = Dialog(Window(Const("a"), state=SG.first),
-                 Window(Const("b"), state=SG.second))
+    dlg = Dialog(Window(Const("a"), state=SG.first), Window(Const("b"), state=SG.second))
     assert dlg.states() == (SG.first, SG.second)
     assert dlg.states_group() is SG
     assert dlg.window_for(SG.second) is not None
@@ -94,10 +99,12 @@ def test_dialog_states_and_window_for():
 
 async def test_find_and_scroll():
     dlg = Dialog(
-        Window(Const("a"),
-               ScrollingGroup(Button(Const("1"), id="b1"), id="sc", height=1),
-               TextInput(id="ti"),
-               state=SG.first),
+        Window(
+            Const("a"),
+            ScrollingGroup(Button(Const("1"), id="b1"), id="sc", height=1),
+            TextInput(id="ti"),
+            state=SG.first,
+        ),
         Window(Const("b"), state=SG.second),
     )
     assert dlg.find("sc").widget_id == "sc"

@@ -21,21 +21,45 @@ class SG(StatesGroup):
 
 
 def raw_message_new(text, peer=5, from_id=5, payload=None):
-    msg = {"id": 0, "conversation_message_id": 10, "peer_id": peer,
-           "from_id": from_id, "text": text, "attachments": [],
-           "date": 0, "version": 0, "out": 0, "fwd_messages": [],
-           "client_info": {"inline_keyboard": True, "button_actions": [],
-                           "keyboard": True, "lang_id": 0}}
+    msg = {
+        "id": 0,
+        "conversation_message_id": 10,
+        "peer_id": peer,
+        "from_id": from_id,
+        "text": text,
+        "attachments": [],
+        "date": 0,
+        "version": 0,
+        "out": 0,
+        "fwd_messages": [],
+        "client_info": {
+            "inline_keyboard": True,
+            "button_actions": [],
+            "keyboard": True,
+            "lang_id": 0,
+        },
+    }
     if payload is not None:
         msg["payload"] = payload
-    return {"type": "message_new", "group_id": 99,
-            "object": {"message": msg, "client_info": msg["client_info"]}}
+    return {
+        "type": "message_new",
+        "group_id": 99,
+        "object": {"message": msg, "client_info": msg["client_info"]},
+    }
 
 
 def raw_message_event(payload: dict, peer=5, user=5, cmid=101):
-    return {"type": "message_event", "group_id": 99,
-            "object": {"event_id": "ev1", "user_id": user, "peer_id": peer,
-                       "conversation_message_id": cmid, "payload": payload}}
+    return {
+        "type": "message_event",
+        "group_id": 99,
+        "object": {
+            "event_id": "ev1",
+            "user_id": user,
+            "peer_id": peer,
+            "conversation_message_id": cmid,
+            "payload": payload,
+        },
+    }
 
 
 @pytest.fixture
@@ -46,10 +70,12 @@ def world(fake_api):
         clicked.append("clicked")
 
     dialog = Dialog(
-        Window(Const("Меню"),
-               Button(Const("Жми"), id="go", on_click=on_click),
-               SwitchTo(Const("Форма"), id="tof", state=SG.form),
-               state=SG.menu),
+        Window(
+            Const("Меню"),
+            Button(Const("Жми"), id="go", on_click=on_click),
+            SwitchTo(Const("Форма"), id="tof", state=SG.form),
+            state=SG.menu,
+        ),
         Window(Const("Введите имя"), TextInput(id="name"), state=SG.form),
     )
     bot = Bot("token")
@@ -109,21 +135,18 @@ async def test_foreign_event_ignored(world):
 async def test_cross_user_replay_rejected_in_chat(world):
     bot, api, clicked, _ = world
     chat_peer = 2_000_000_001
-    await bot.router.route(
-        raw_message_new("/start", peer=chat_peer, from_id=7), api)
+    await bot.router.route(raw_message_new("/start", peer=chat_peer, from_id=7), api)
     intent = intent_of(api)
     # атакующий user=8 реплеит payload владельца user=7 через message_event
     payload = json.loads(encode_payload(intent, "go", None))
-    await bot.router.route(
-        raw_message_event(payload, peer=chat_peer, user=8), api)
+    await bot.router.route(raw_message_event(payload, peer=chat_peer, user=8), api)
     # стек-ключ выводится из события → стек атакующего (owner=8) пуст →
     # intent не вершина его стека → отказ + снекбар; on_click НЕ вызван
     assert clicked == []
     answers = api.sent("messages.sendMessageEventAnswer")
     assert len(answers) == 1 and "snackbar" in answers[0].get("event_data", "")
     # владелец (user=7) кликает свой intent — работает
-    await bot.router.route(
-        raw_message_event(payload, peer=chat_peer, user=7), api)
+    await bot.router.route(raw_message_event(payload, peer=chat_peer, user=7), api)
     assert clicked == ["clicked"]
 
 
@@ -169,8 +192,7 @@ async def test_unknown_state_gets_single_ack_and_recovers(fake_api):
     )
     bot = Bot("token")
     storage = MemoryStorage()
-    setup_dialogs(bot, dialog, storage=storage, api=fake_api,
-                  on_unknown_state=on_unknown_state)
+    setup_dialogs(bot, dialog, storage=storage, api=fake_api, on_unknown_state=on_unknown_state)
 
     @bot.on.message(NotInDialog(), text="/start")
     async def start(message, dialog_manager):

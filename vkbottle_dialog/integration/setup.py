@@ -38,9 +38,15 @@ class DialogRegistry:
 
 
 class SetupDeps:
-    def __init__(self, registry: DialogRegistry, proxy: StorageProxy,
-                 locks: LockRegistry, config: DialogConfig,
-                 bg_factory: BgManagerFactory, api: Any) -> None:
+    def __init__(
+        self,
+        registry: DialogRegistry,
+        proxy: StorageProxy,
+        locks: LockRegistry,
+        config: DialogConfig,
+        bg_factory: BgManagerFactory,
+        api: Any,
+    ) -> None:
         self.registry = registry
         self.proxy = proxy
         self.locks = locks
@@ -61,13 +67,18 @@ def active_setup() -> SetupDeps:
     return _ACTIVE
 
 
-def setup_dialogs(bot: Any, *dialogs: Dialog, storage: Any = None,
-                  payload_secret: str | None = None, getter: Any = None,
-                  markup_factory: Any = None, api: Any = None,
-                  on_unknown_intent: Callable | None = None,
-                  on_unknown_state: Callable | None = None,
-                  stale_snackbar: str = "Окно устарело, начните заново",
-                  ) -> BgManagerFactory:
+def setup_dialogs(
+    bot: Any,
+    *dialogs: Dialog,
+    storage: Any = None,
+    payload_secret: str | None = None,
+    getter: Any = None,
+    markup_factory: Any = None,
+    api: Any = None,
+    on_unknown_intent: Callable | None = None,
+    on_unknown_state: Callable | None = None,
+    stale_snackbar: str = "Окно устарело, начните заново",
+) -> BgManagerFactory:
     """Подключает диалоги к боту и возвращает BgManagerFactory для bg()
     из внешнего кода (крон, вебхуки и т.п.).
 
@@ -83,17 +94,28 @@ def setup_dialogs(bot: Any, *dialogs: Dialog, storage: Any = None,
     registry = DialogRegistry(*dialogs, states_registry=states_registry)
     proxy = StorageProxy(storage or MemoryStorage(), states_registry)
     locks = LockRegistry()
-    config = DialogConfig(secret=payload_secret, global_getter=getter,
-                          stale_snackbar=stale_snackbar)
+    config = DialogConfig(
+        secret=payload_secret, global_getter=getter, stale_snackbar=stale_snackbar
+    )
     if markup_factory is not None:
         config.default_markup_factory = markup_factory
     the_api = api or bot.api
-    bg_factory = BgManagerFactory(registry=registry, proxy=proxy,
-                                  message_manager=MessageManager(the_api),
-                                  locks=locks, config=config)
-    view = DialogView(registry=registry, proxy=proxy, locks=locks, config=config,
-                      bg_factory=bg_factory, on_unknown_intent=on_unknown_intent,
-                      on_unknown_state=on_unknown_state)
+    bg_factory = BgManagerFactory(
+        registry=registry,
+        proxy=proxy,
+        message_manager=MessageManager(the_api),
+        locks=locks,
+        config=config,
+    )
+    view = DialogView(
+        registry=registry,
+        proxy=proxy,
+        locks=locks,
+        config=config,
+        bg_factory=bg_factory,
+        on_unknown_intent=on_unknown_intent,
+        on_unknown_state=on_unknown_state,
+    )
     # КРИТИЧНО: bot.router.add_view не работает (Bot.router — property,
     # пересобирающая views из labeler на каждом событии) — оборачиваем labeler.
     # DialogView ставится ПЕРВЫМ: на message_new без активного диалога (ещё

@@ -47,8 +47,9 @@ def new_intent_id() -> str:
     return "".join(secrets.choice(_ALPHABET) for _ in range(11))
 
 
-def make_stack_key(group_id: int, peer_id: int, owner_id: int,
-                   stack_id: str = DEFAULT_STACK_ID) -> str:
+def make_stack_key(
+    group_id: int, peer_id: int, owner_id: int, stack_id: str = DEFAULT_STACK_ID
+) -> str:
     return f"vkd:stack:{group_id}:{peer_id}:{owner_id}:{stack_id}"
 
 
@@ -65,9 +66,12 @@ class Context:
     dialog_data: dict = field(default_factory=dict)
     widget_data: dict = field(default_factory=dict)
 
-    def same(self, other: "Context | None") -> bool:
-        return (other is not None and other.intent_id == self.intent_id
-                and other.stack_key == self.stack_key)
+    def same(self, other: Context | None) -> bool:
+        return (
+            other is not None
+            and other.intent_id == self.intent_id
+            and other.stack_key == self.stack_key
+        )
 
 
 @dataclass
@@ -84,8 +88,9 @@ class Stack:
     def push(self, state: State, start_data: Any) -> Context:
         if len(self.intents) >= STACK_LIMIT:
             raise DialogStackOverflow(self.key)
-        ctx = Context(intent_id=new_intent_id(), stack_key=self.key,
-                      state=state, start_data=start_data)
+        ctx = Context(
+            intent_id=new_intent_id(), stack_key=self.key, state=state, start_data=start_data
+        )
         self.intents.append(ctx.intent_id)
         return ctx
 

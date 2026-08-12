@@ -27,18 +27,21 @@ class BasePager(Keyboard):
         return True
 
     def _btn(self, label: str, page: int) -> VKButton:
-        return VKButton(action="callback", label=label,
-                        callback_data=f"{self.widget_id}:{page}")
+        return VKButton(action="callback", label=label, callback_data=f"{self.widget_id}:{page}")
 
 
 class NumberedPager(BasePager):
     default_page_text: Text = Format("{page}")
     default_current_page_text: Text = Format("[{page}]")
 
-    def __init__(self, scroll_id: str, id: str = "__pager__",
-                 page_text: Text | None = None,
-                 current_page_text: Text | None = None,
-                 when: WhenCondition = None) -> None:
+    def __init__(
+        self,
+        scroll_id: str,
+        id: str = "__pager__",
+        page_text: Text | None = None,
+        current_page_text: Text | None = None,
+        when: WhenCondition = None,
+    ) -> None:
         super().__init__(scroll_id, id, when)
         self._page_text = page_text or self.default_page_text
         self._current_page_text = current_page_text or self.default_current_page_text
@@ -58,8 +61,9 @@ class NumberedPager(BasePager):
 class _JumpPager(BasePager):
     default_text: Text = Const("")
 
-    def __init__(self, scroll_id: str, id: str, text: Text | None = None,
-                 when: WhenCondition = None) -> None:
+    def __init__(
+        self, scroll_id: str, id: str, text: Text | None = None, when: WhenCondition = None
+    ) -> None:
         super().__init__(scroll_id, id, when)
         self._text = text or self.default_text
 
@@ -71,7 +75,8 @@ class _JumpPager(BasePager):
         pages = await scroll.get_page_count(data, manager)
         current = scroll.get_page(manager)
         label = await self._text.render_text(
-            {"page": current + 1, "pages": pages, **data}, manager)
+            {"page": current + 1, "pages": pages, **data}, manager
+        )
         return [[self._btn(label, self._target(current, pages))]]
 
 

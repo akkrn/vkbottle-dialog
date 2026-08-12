@@ -13,11 +13,16 @@ from .widgets.utils import ensure_widgets
 
 
 class Window:
-    def __init__(self, *widgets: Any, state: State, getter: Any = None,
-                 markup_factory: Any = None,
-                 on_process_result: Callable | None = None,
-                 disable_mentions: bool = True,
-                 dont_parse_links: bool = False) -> None:
+    def __init__(
+        self,
+        *widgets: Any,
+        state: State,
+        getter: Any = None,
+        markup_factory: Any = None,
+        on_process_result: Callable | None = None,
+        disable_mentions: bool = True,
+        dont_parse_links: bool = False,
+    ) -> None:
         self._text, self._keyboard, self._input = ensure_widgets(widgets)
         self.state = state
         self._getter = ensure_data_getter(getter)
@@ -32,8 +37,14 @@ class Window:
         data.update(await self._getter(**kwargs))
         return data
 
-    async def render(self, manager: Any, event_ctx: EventContext, intent_id: str,
-                     secret: str | None, default_markup_factory: Any) -> NewMessage:
+    async def render(
+        self,
+        manager: Any,
+        event_ctx: EventContext,
+        intent_id: str,
+        secret: str | None,
+        default_markup_factory: Any,
+    ) -> NewMessage:
         factory = self._markup_factory or default_markup_factory
         if isinstance(factory, TextKeyboardFactory) and event_ctx.is_chat:
             raise DialogConfigError(

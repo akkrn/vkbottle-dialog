@@ -1,4 +1,5 @@
 import pytest
+
 from vkbottle_dialog.exceptions import UnknownState
 from vkbottle_dialog.fsm import State, StatesGroup, StatesRegistry
 

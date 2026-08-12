@@ -13,8 +13,14 @@ def _event_ctx_from_message(message: Any, group_id: int) -> EventContext:
     peer_id = message.peer_id
     from_id = message.from_id
     owner = from_id if peer_id >= PEER_ID_OFFSET else peer_id
-    return EventContext(group_id=group_id, peer_id=peer_id, owner_id=owner,
-                        user_id=from_id, kind="message_new", raw=message)
+    return EventContext(
+        group_id=group_id,
+        peer_id=peer_id,
+        owner_id=owner,
+        user_id=from_id,
+        kind="message_new",
+        raw=message,
+    )
 
 
 async def _detached_manager(message: Any) -> tuple[ManagerImpl, bool]:
@@ -27,10 +33,17 @@ async def _detached_manager(message: Any) -> tuple[ManagerImpl, bool]:
             context = await deps.proxy.load_top(stack)
         except Exception:
             context = None
-    manager = ManagerImpl(event_ctx=ev, registry=deps.registry, proxy=deps.proxy,
-                          message_manager=deps.message_manager(message.ctx_api),
-                          locks=deps.locks, config=deps.config,
-                          stack=stack, context=context, event=message)
+    manager = ManagerImpl(
+        event_ctx=ev,
+        registry=deps.registry,
+        proxy=deps.proxy,
+        message_manager=deps.message_manager(message.ctx_api),
+        locks=deps.locks,
+        config=deps.config,
+        stack=stack,
+        context=context,
+        event=message,
+    )
     manager._detached = True
     return manager, context is not None
 

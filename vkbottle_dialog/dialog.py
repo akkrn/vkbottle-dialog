@@ -11,11 +11,15 @@ from .window import Window
 
 
 class Dialog:
-    def __init__(self, *windows: Window, on_start: Callable | None = None,
-                 on_close: Callable | None = None,
-                 on_process_result: Callable | None = None,
-                 launch_mode: LaunchMode = LaunchMode.STANDARD,
-                 getter: Any = None) -> None:
+    def __init__(
+        self,
+        *windows: Window,
+        on_start: Callable | None = None,
+        on_close: Callable | None = None,
+        on_process_result: Callable | None = None,
+        launch_mode: LaunchMode = LaunchMode.STANDARD,
+        getter: Any = None,
+    ) -> None:
         if not windows:
             raise DialogConfigError("Dialog требует хотя бы одно окно")
         groups = {w.state.group for w in windows}
@@ -50,11 +54,16 @@ class Dialog:
         data.update(await self._getter(**kwargs))
         return data
 
-    async def render(self, manager: Any, event_ctx: Any, intent_id: str,
-                     secret: str | None, default_markup_factory: Any) -> NewMessage:
+    async def render(
+        self,
+        manager: Any,
+        event_ctx: Any,
+        intent_id: str,
+        secret: str | None,
+        default_markup_factory: Any,
+    ) -> NewMessage:
         window = self.window_for(manager.current_context().state)
-        return await window.render(manager, event_ctx, intent_id, secret,
-                                   default_markup_factory)
+        return await window.render(manager, event_ctx, intent_id, secret, default_markup_factory)
 
     async def process_callback(self, callback_data: str, manager: Any) -> bool:
         window = self.window_for(manager.current_context().state)
@@ -64,8 +73,9 @@ class Dialog:
         window = self.window_for(manager.current_context().state)
         return await window.process_message(message, manager)
 
-    async def process_start(self, manager: Any, start_data: Any,
-                            state: State | None = None) -> None:
+    async def process_start(
+        self, manager: Any, start_data: Any, state: State | None = None
+    ) -> None:
         await manager.switch_to(state or self._states[0])
         await self._on_start.process_event(start_data, manager)
 
@@ -75,8 +85,7 @@ class Dialog:
     async def process_result(self, start_data: Any, result: Any, manager: Any) -> None:
         await self._on_process_result.process_event(start_data, result, manager)
 
-    async def process_window_result(self, start_data: Any, result: Any,
-                                    manager: Any) -> None:
+    async def process_window_result(self, start_data: Any, result: Any, manager: Any) -> None:
         window = self.window_for(manager.current_context().state)
         await window.process_result(start_data, result, manager)
 

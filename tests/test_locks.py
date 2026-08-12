@@ -14,15 +14,13 @@ async def test_mutual_exclusion():
             order.append(f"{tag}-out")
 
     await asyncio.gather(worker("a"), worker("b"))
-    assert order in (["a-in", "a-out", "b-in", "b-out"],
-                     ["b-in", "b-out", "a-in", "a-out"])
+    assert order in (["a-in", "a-out", "b-in", "b-out"], ["b-in", "b-out", "a-in", "a-out"])
 
 
 async def test_reentrant_same_task():
     reg = LockRegistry()
-    async with reg.acquire("k"):
-        async with reg.acquire("k"):  # не должно зависнуть
-            pass
+    async with reg.acquire("k"), reg.acquire("k"):  # не должно зависнуть
+        pass
 
 
 async def test_different_keys_parallel():

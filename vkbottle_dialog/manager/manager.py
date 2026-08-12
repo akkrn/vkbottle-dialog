@@ -32,11 +32,20 @@ class DialogConfig:
 
 
 class ManagerImpl:
-    def __init__(self, *, event_ctx: EventContext, registry: Any,
-                 proxy: StorageProxy, message_manager: MessageManager,
-                 locks: LockRegistry, config: DialogConfig, stack: Stack,
-                 context: Context | None, event: Any = None,
-                 middleware_data: dict | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        event_ctx: EventContext,
+        registry: Any,
+        proxy: StorageProxy,
+        message_manager: MessageManager,
+        locks: LockRegistry,
+        config: DialogConfig,
+        stack: Stack,
+        context: Context | None,
+        event: Any = None,
+        middleware_data: dict | None = None,
+    ) -> None:
         self._event_ctx = event_ctx
         self._registry = registry
         self._proxy = proxy
@@ -121,8 +130,9 @@ class ManagerImpl:
             self._detached = False
             try:
                 self._stack = await self._proxy.load_stack(self._event_ctx.stack_key)
-                self._context = (await self._proxy.load_top(self._stack)
-                                 if not self._stack.empty() else None)
+                self._context = (
+                    await self._proxy.load_top(self._stack) if not self._stack.empty() else None
+                )
                 self._dirty_contexts = {}
                 if self._context is not None:
                     self._dirty_contexts[self._context.intent_id] = self._context
@@ -131,13 +141,18 @@ class ManagerImpl:
             finally:
                 self._detached = True
 
-    async def start(self, state: State, data: Any = None,
-                    mode: StartMode = StartMode.NORMAL,
-                    show_mode: ShowMode | None = None) -> None:
+    async def start(
+        self,
+        state: State,
+        data: Any = None,
+        mode: StartMode = StartMode.NORMAL,
+        show_mode: ShowMode | None = None,
+    ) -> None:
         await self._run_detached(self._start_impl, state, data, mode, show_mode)
 
-    async def _start_impl(self, state: State, data: Any,
-                          mode: StartMode, show_mode: ShowMode | None) -> None:
+    async def _start_impl(
+        self, state: State, data: Any, mode: StartMode, show_mode: ShowMode | None
+    ) -> None:
         if show_mode is not None:
             self.show_mode = show_mode
         if mode == StartMode.NEW_STACK:
@@ -161,8 +176,7 @@ class ManagerImpl:
                 raise DialogConfigError("нельзя стартовать поверх EXCLUSIVE диалога")
             if new_dialog.launch_mode in (LaunchMode.ROOT, LaunchMode.EXCLUSIVE):
                 await self._clear_stack()
-            elif (new_dialog.launch_mode == LaunchMode.SINGLE_TOP
-                  and new_dialog is current_dialog):
+            elif new_dialog.launch_mode == LaunchMode.SINGLE_TOP and new_dialog is current_dialog:
                 await self._pop_current()
         ctx = self._stack.push(state, data)
         self._context = ctx
@@ -181,9 +195,7 @@ class ManagerImpl:
     async def switch_to(self, state: State, show_mode: ShowMode | None = None) -> None:
         ctx = self.current_context()
         if state.group is not ctx.state.group:
-            raise DialogConfigError(
-                f"switch_to в чужую группу {state.state}; используйте start()"
-            )
+            raise DialogConfigError(f"switch_to в чужую группу {state.state}; используйте start()")
         if show_mode is not None:
             self.show_mode = show_mode
         ctx.state = state
@@ -202,8 +214,7 @@ class ManagerImpl:
             raise DialogConfigError("back() до первого окна")
         await self.switch_to(states[idx - 1], show_mode)
 
-    async def done(self, result: Any = None,
-                   show_mode: ShowMode | None = None) -> None:
+    async def done(self, result: Any = None, show_mode: ShowMode | None = None) -> None:
         await self._run_detached(self._done_impl, result, show_mode)
 
     async def _done_impl(self, result: Any, show_mode: ShowMode | None) -> None:
@@ -217,12 +228,12 @@ class ManagerImpl:
         if parent_id is None:
             if self.show_mode != ShowMode.NO_UPDATE:
                 if self.show_mode == ShowMode.DELETE_AND_SEND:
-                    await self._message_manager._delete_old(
-                        self._stack, self._event_ctx.peer_id)
+                    await self._message_manager._delete_old(self._stack, self._event_ctx.peer_id)
                     self._stack.clear_message()
                 else:
                     await self._message_manager.remove_kbd(
-                        self._stack, self._event_ctx.peer_id, now=self._config.now())
+                        self._stack, self._event_ctx.peer_id, now=self._config.now()
+                    )
             return
         # Storage — источник истины: параллельный bg() на тот же стек мог
         # закоммитить более свежую версию родителя, чем то, что лежит в
@@ -259,7 +270,8 @@ class ManagerImpl:
         await self._clear_stack()
         if remove_keyboard:
             await self._message_manager.remove_kbd(
-                self._stack, self._event_ctx.peer_id, now=self._config.now())
+                self._stack, self._event_ctx.peer_id, now=self._config.now()
+            )
 
     # --- рендер и ответы ---
 
@@ -274,36 +286,46 @@ class ManagerImpl:
         if not self._event_ctx.is_chat and self._stack.inline_supported is False:
             factory = TextKeyboardFactory()
         new_message = await self.dialog().render(
-            self, self._event_ctx, ctx.intent_id, self._config.secret, factory,
+            self,
+            self._event_ctx,
+            ctx.intent_id,
+            self._config.secret,
+            factory,
         )
         new_message.show_mode = self.show_mode
         await self._message_manager.show_message(
-            new_message, self._stack,
-            trigger=self._event_ctx.kind, now=self._config.now(),
+            new_message,
+            self._stack,
+            trigger=self._event_ctx.kind,
+            now=self._config.now(),
         )
         self.show_mode = ShowMode.AUTO
 
-    async def answer(self, snackbar: str | None = None,
-                     open_link: str | None = None) -> None:
+    async def answer(self, snackbar: str | None = None, open_link: str | None = None) -> None:
         if self._answer_latch is not None:
             await self._answer_latch.answer(snackbar=snackbar, open_link=open_link)
 
     def bg(self, peer_id: int | None = None, user_id: int | None = None) -> Any:
         from .bg_manager import BgManager  # цикл: bg_manager импортирует ManagerImpl
+
         ev = self._event_ctx
         peer = peer_id if peer_id is not None else ev.peer_id
-        owner = user_id if user_id is not None else (
-            ev.owner_id if peer == ev.peer_id else peer)
-        coords = EventContext(group_id=ev.group_id, peer_id=peer, owner_id=owner,
-                              user_id=owner, kind="bg", raw=None)
-        return BgManager(coords=coords, registry=self._registry, proxy=self._proxy,
-                         message_manager=self._message_manager, locks=self._locks,
-                         config=self._config)
+        owner = user_id if user_id is not None else (ev.owner_id if peer == ev.peer_id else peer)
+        coords = EventContext(
+            group_id=ev.group_id, peer_id=peer, owner_id=owner, user_id=owner, kind="bg", raw=None
+        )
+        return BgManager(
+            coords=coords,
+            registry=self._registry,
+            proxy=self._proxy,
+            message_manager=self._message_manager,
+            locks=self._locks,
+            config=self._config,
+        )
 
     # --- персист ---
 
     async def commit(self) -> None:
-        alive = {i: c for i, c in self._dirty_contexts.items()
-                 if i in self._stack.intents}
+        alive = {i: c for i, c in self._dirty_contexts.items() if i in self._stack.intents}
         await self._proxy.save(self._stack, *alive.values())
         await self._proxy.touch_all(self._stack)

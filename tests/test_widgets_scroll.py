@@ -25,7 +25,11 @@ async def test_scrolling_group_pages(fake_manager_factory):
     assert [b.label for b in kb[0]] == ["0"] and [b.label for b in kb[1]] == ["1"]
     pager = kb[-1]
     assert [b.callback_data for b in pager] == [
-        "sc:0", "sc:0", "sc:0", "sc:1", "sc:2",
+        "sc:0",
+        "sc:0",
+        "sc:0",
+        "sc:1",
+        "sc:2",
     ]  # «, ‹ на 1-й странице клампятся в 0; текущая — no-op
 
     await sg.process_callback("sc:2", m)

@@ -16,9 +16,16 @@ _DEFAULT_CANCEL_TEXT = Const("Отмена")
 
 
 class SwitchTo(Button):
-    def __init__(self, text: Text, id: str, state: State,
-                 on_click: Callable | None = None, color: ButtonColor | None = None,
-                 show_mode: ShowMode | None = None, when: WhenCondition = None) -> None:
+    def __init__(
+        self,
+        text: Text,
+        id: str,
+        state: State,
+        on_click: Callable | None = None,
+        color: ButtonColor | None = None,
+        show_mode: ShowMode | None = None,
+        when: WhenCondition = None,
+    ) -> None:
         super().__init__(text, id, on_click, color, None, show_mode, when)
         self._state = state
 
@@ -43,8 +50,9 @@ class Back(Button):
 
 
 class Cancel(Button):
-    def __init__(self, text: Text | None = None, id: str = "__cancel__",
-                 result: Any = None, **kwargs) -> None:
+    def __init__(
+        self, text: Text | None = None, id: str = "__cancel__", result: Any = None, **kwargs
+    ) -> None:
         super().__init__(text or _DEFAULT_CANCEL_TEXT, id, **kwargs)
         self._result = result
 
@@ -53,13 +61,21 @@ class Cancel(Button):
 
 
 class Start(Button):
-    def __init__(self, text: Text, id: str, state: State, data: Any = None,
-                 mode: StartMode = StartMode.NORMAL, **kwargs) -> None:
+    def __init__(
+        self,
+        text: Text,
+        id: str,
+        state: State,
+        data: Any = None,
+        mode: StartMode = StartMode.NORMAL,
+        **kwargs,
+    ) -> None:
         super().__init__(text, id, **kwargs)
         self._state = state
         self._data = data
         self._mode = mode
 
     async def _action(self, manager: Any) -> None:
-        await manager.start(self._state, data=self._data, mode=self._mode,
-                            show_mode=self._show_mode)
+        await manager.start(
+            self._state, data=self._data, mode=self._mode, show_mode=self._show_mode
+        )

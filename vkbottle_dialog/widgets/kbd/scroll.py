@@ -21,7 +21,10 @@ class BaseScroll:
     async def set_page(self, manager: Any, page: int) -> None:
         manager.current_context().widget_data[self.widget_id] = int(page)
         await self._on_page_changed.process_event(
-            getattr(manager, "event", None), self, manager, page,
+            getattr(manager, "event", None),
+            self,
+            manager,
+            page,
         )
 
     async def get_page_count(self, data: dict, manager: Any) -> int:
@@ -29,10 +32,16 @@ class BaseScroll:
 
 
 class ScrollingGroup(Group, BaseScroll):
-    def __init__(self, *kbds: Keyboard, id: str, height: int,
-                 width: int | None = None, hide_pager: bool = False,
-                 on_page_changed: Callable | None = None,
-                 when: WhenCondition = None) -> None:
+    def __init__(
+        self,
+        *kbds: Keyboard,
+        id: str,
+        height: int,
+        width: int | None = None,
+        hide_pager: bool = False,
+        on_page_changed: Callable | None = None,
+        when: WhenCondition = None,
+    ) -> None:
         Group.__init__(self, *kbds, width=width, id=id, when=when)
         BaseScroll.__init__(self, on_page_changed)
         self._height = height
@@ -50,15 +59,17 @@ class ScrollingGroup(Group, BaseScroll):
         pages = max(1, math.ceil(len(rows) / self._height))
         page = min(self.get_page(manager), pages - 1)
         start = page * self._height
-        kbd = rows[start:start + self._height]
+        kbd = rows[start : start + self._height]
         if pages > 1 and not self._hide_pager:
             kbd.append(self._pager_row(page, pages))
         return kbd
 
     def _pager_row(self, page: int, pages: int) -> list[VKButton]:
         def btn(label: str, target: int) -> VKButton:
-            return VKButton(action="callback", label=label,
-                            callback_data=f"{self.widget_id}:{target}")
+            return VKButton(
+                action="callback", label=label, callback_data=f"{self.widget_id}:{target}"
+            )
+
         return [
             btn("«", 0),
             btn("‹", max(0, page - 1)),
@@ -79,8 +90,7 @@ class ScrollingGroup(Group, BaseScroll):
 
 
 class StubScroll(Keyboard, BaseScroll):
-    def __init__(self, id: str, pages: Any,
-                 on_page_changed: Callable | None = None) -> None:
+    def __init__(self, id: str, pages: Any, on_page_changed: Callable | None = None) -> None:
         Keyboard.__init__(self, id, None)
         BaseScroll.__init__(self, on_page_changed)
         self._pages = pages  # str-ключ данных либо callable(data) -> int
@@ -111,4 +121,5 @@ def sync_scroll(*scroll_ids: str) -> Callable:
             if target is not widget:
                 target_ctx = manager.current_context()
                 target_ctx.widget_data[sid] = int(page)
+
     return on_page_changed

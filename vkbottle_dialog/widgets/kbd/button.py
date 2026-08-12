@@ -10,9 +10,16 @@ from .base import ButtonColor, Keyboard, RawKeyboard, VKButton
 
 
 class Button(Keyboard):
-    def __init__(self, text: Text, id: str, on_click: Callable | None = None,
-                 color: ButtonColor | None = None, snackbar: str | None = None,
-                 show_mode: ShowMode | None = None, when: WhenCondition = None) -> None:
+    def __init__(
+        self,
+        text: Text,
+        id: str,
+        on_click: Callable | None = None,
+        color: ButtonColor | None = None,
+        snackbar: str | None = None,
+        show_mode: ShowMode | None = None,
+        when: WhenCondition = None,
+    ) -> None:
         super().__init__(id, when)
         self._text = text
         self._on_click = ensure_event_processor(on_click)
@@ -22,8 +29,13 @@ class Button(Keyboard):
 
     async def _render_keyboard(self, data: dict, manager: Any) -> RawKeyboard:
         label = await self._text.render_text(data, manager)
-        return [[VKButton(action="callback", label=label,
-                          callback_data=self.widget_id, color=self._color)]]
+        return [
+            [
+                VKButton(
+                    action="callback", label=label, callback_data=self.widget_id, color=self._color
+                )
+            ]
+        ]
 
     async def _process_own_callback(self, manager: Any) -> bool:
         if self._snackbar is not None:
@@ -39,14 +51,21 @@ class Button(Keyboard):
 
 
 class Url(Keyboard):
-    def __init__(self, text: Text, url: Text, id: str | None = None,
-                 when: WhenCondition = None) -> None:
+    def __init__(
+        self, text: Text, url: Text, id: str | None = None, when: WhenCondition = None
+    ) -> None:
         super().__init__(id, when)
         self._text = text
         self._url = url
 
     async def _render_keyboard(self, data: dict, manager: Any) -> RawKeyboard:
-        return [[VKButton(action="open_link",
-                          label=await self._text.render_text(data, manager),
-                          callback_data=None,
-                          link=await self._url.render_text(data, manager))]]
+        return [
+            [
+                VKButton(
+                    action="open_link",
+                    label=await self._text.render_text(data, manager),
+                    callback_data=None,
+                    link=await self._url.render_text(data, manager),
+                )
+            ]
+        ]

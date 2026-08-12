@@ -54,8 +54,11 @@ class FakeApi:
         self.calls.append((method, params))
         if method == "messages.send":
             self.next_cmid += 1
-            return {"response": [{"peer_id": params["peer_ids"][0],
-                                  "conversation_message_id": self.next_cmid}]}
+            return {
+                "response": [
+                    {"peer_id": params["peer_ids"][0], "conversation_message_id": self.next_cmid}
+                ]
+            }
         if method == "messages.edit":
             if self.fail_edit_with:
                 raise VKAPIError[self.fail_edit_with](error_msg="fail")

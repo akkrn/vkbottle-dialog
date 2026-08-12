@@ -76,8 +76,9 @@ Selector = str | MagicFilter | Callable[[dict, "Case", Any], Any]
 
 
 class Case(Text):
-    def __init__(self, texts: dict[Any, Text], selector: Selector,
-                 when: WhenCondition = None) -> None:
+    def __init__(
+        self, texts: dict[Any, Text], selector: Selector, when: WhenCondition = None
+    ) -> None:
         super().__init__(when)
         self._texts = texts
         self._selector = selector

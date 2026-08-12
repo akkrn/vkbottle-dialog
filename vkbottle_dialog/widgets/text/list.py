@@ -7,8 +7,9 @@ from .base import Text
 
 
 class List(Text):
-    def __init__(self, field: Text, items: Any, sep: str = "\n",
-                 when: WhenCondition = None) -> None:
+    def __init__(
+        self, field: Text, items: Any, sep: str = "\n", when: WhenCondition = None
+    ) -> None:
         super().__init__(when)
         self._field = field
         self._items = get_items_getter(items)
@@ -23,8 +24,14 @@ class List(Text):
 
 
 class Progress(Text):
-    def __init__(self, field: str, width: int = 10, filled: str = "█",
-                 empty: str = "░", when: WhenCondition = None) -> None:
+    def __init__(
+        self,
+        field: str,
+        width: int = 10,
+        filled: str = "█",
+        empty: str = "░",
+        when: WhenCondition = None,
+    ) -> None:
         super().__init__(when)
         self._field = field
         self._width = width

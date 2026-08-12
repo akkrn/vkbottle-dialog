@@ -26,8 +26,7 @@ class RedisStorage:
         return json.loads(raw) if raw is not None else None
 
     async def set(self, key: str, data: dict) -> None:
-        await self._redis.set(self._k(key), json.dumps(data, ensure_ascii=False),
-                              ex=self._ttl)
+        await self._redis.set(self._k(key), json.dumps(data, ensure_ascii=False), ex=self._ttl)
 
     async def delete(self, key: str) -> None:
         await self._redis.delete(self._k(key))

@@ -62,8 +62,7 @@ dialog = Dialog(
     Window(
         Const("Сколько вам лет? Введите число."),
         Const("⚠ Возраст должен быть числом, например: 25", when="error"),
-        TextInput(id="age", type_factory=int, on_success=on_age_entered,
-                  on_error=on_age_error),
+        TextInput(id="age", type_factory=int, on_success=on_age_entered, on_error=on_age_error),
         Back(),
         state=SurveySG.age,
         getter=age_getter,
