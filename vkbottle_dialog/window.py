@@ -23,7 +23,7 @@ class Window:
         disable_mentions: bool = True,
         dont_parse_links: bool = False,
     ) -> None:
-        self._text, self._keyboard, self._input = ensure_widgets(widgets)
+        self._text, self._keyboard, self._input, self._media = ensure_widgets(widgets)
         self.state = state
         self._getter = ensure_data_getter(getter)
         self._markup_factory = markup_factory
@@ -60,6 +60,7 @@ class Window:
         text = await self._text.render_text(data, manager)
         raw_kbd = await self._keyboard.render_keyboard(data, manager)
         rendered = factory.render(raw_kbd, intent_id, secret)
+        media = await self._media.render_media(data, manager) if self._media else None
         return NewMessage(
             peer_id=event_ctx.peer_id,
             text=text or " ",
@@ -67,6 +68,7 @@ class Window:
             keyboard_kind=rendered.kind,
             disable_mentions=self._disable_mentions,
             dont_parse_links=self._dont_parse_links,
+            media=media,
         )
 
     async def process_callback(self, callback_data: str, manager: Any) -> bool:
@@ -81,7 +83,7 @@ class Window:
         await self._on_process_result.process_event(start_data, result, manager)
 
     def find(self, widget_id: str) -> Any:
-        for slot in (self._text, self._keyboard, self._input):
+        for slot in (self._text, self._keyboard, self._input, self._media):
             if slot is not None:
                 found = slot.find(widget_id)
                 if found is not None:
