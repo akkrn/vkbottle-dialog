@@ -338,7 +338,7 @@ class CalendarSG(StatesGroup):
     pick = State()
 
 
-async def test_calendar_wide_flow_start_shift_month_pick_date(fake_api):
+async def test_calendar_compact_flow_start_shift_month_pick_date(fake_api):
     picked = []
 
     async def on_click(event, widget, manager, selected):
