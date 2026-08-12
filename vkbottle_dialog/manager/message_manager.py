@@ -94,7 +94,9 @@ class MessageManager:
         stack.last_keyboard_kind = new.keyboard_kind
         stack.last_text = new.text
         stack.last_media_key = (
-            new.media.source_key() if attachment is not None and new.media else None
+            new.media.source_key()
+            if attachment is not None and new.media
+            else (None if new.media is None else stack.last_media_key)
         )
 
     async def _send(self, new: NewMessage, stack: Stack, now: float) -> None:

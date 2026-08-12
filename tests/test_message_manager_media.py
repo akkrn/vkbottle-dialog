@@ -28,13 +28,13 @@ def make_resolver(tmp_path, uploader_cls=OkUploader):
     ), up
 
 
-def media_msg(tmp_path, mode=ShowMode.AUTO):
-    f = tmp_path / "a.png"
+def media_msg(tmp_path, mode=ShowMode.AUTO, name="a.png", text="t"):
+    f = tmp_path / name
     if not f.exists():
         f.write_bytes(b"x")
     return NewMessage(
         peer_id=5,
-        text="t",
+        text=text,
         keyboard=None,
         keyboard_kind=KeyboardKind.NONE,
         media=MediaAttachment(path=str(f)),
@@ -113,3 +113,49 @@ async def test_no_resolver_ignores_media(fake_api, tmp_path):
     stack = fresh_stack()
     await mm.show_message(media_msg(tmp_path), stack, trigger="message_event", now=NOW)
     assert "attachment" not in fake_api.sent("messages.send")[0]
+
+
+async def test_edit_with_changed_media_sends_new_attachment(fake_api, tmp_path):
+    resolver, _ = make_resolver(tmp_path)
+    mm = MessageManager(fake_api, media_resolver=resolver)
+    msg = media_msg(tmp_path, name="b.png", text="t2")
+    stack = fresh_stack(
+        last_cmid=50,
+        last_message_sent_at=NOW - 10,
+        last_keyboard_kind=KeyboardKind.NONE,
+        last_media_key="photo|old.png",
+        last_render_hash="old",
+    )
+    await mm.show_message(msg, stack, trigger="message_event", now=NOW)
+    edit = fake_api.sent("messages.edit")[0]
+    assert edit["attachment"] == "photo1_1_k"
+    assert stack.last_media_key == msg.media.source_key()
+
+
+async def test_media_swap_failure_preserves_key_then_clears(fake_api, tmp_path):
+    class Boom:
+        def __init__(self, api): ...
+        async def upload(self, *a, **kw):
+            raise RuntimeError("down")
+
+    ok_resolver, _ = make_resolver(tmp_path)
+    fail_resolver, _ = make_resolver(tmp_path, Boom)
+    stack = fresh_stack()
+
+    msg_a = media_msg(tmp_path, name="a.png", text="t")
+    mm_ok = MessageManager(fake_api, media_resolver=ok_resolver)
+    await mm_ok.show_message(msg_a, stack, trigger="message_event", now=NOW)
+    assert stack.last_media_key == msg_a.media.source_key()
+
+    msg_b = media_msg(tmp_path, name="b.png", text="t2")
+    mm_fail = MessageManager(fake_api, media_resolver=fail_resolver)
+    await mm_fail.show_message(msg_b, stack, trigger="message_event", now=NOW + 10)
+    swap_edit = fake_api.sent("messages.edit")[0]
+    assert "attachment" not in swap_edit  # аплоуд B провалился, окно осталось со старым A
+    assert stack.last_media_key == msg_a.media.source_key()  # A всё ещё прикреплён на сервере
+
+    msg_none = NewMessage(peer_id=5, text="t3", keyboard=None, keyboard_kind=KeyboardKind.NONE)
+    await mm_ok.show_message(msg_none, stack, trigger="message_event", now=NOW + 20)
+    clear_edit = fake_api.sent("messages.edit")[1]
+    assert clear_edit["attachment"] == ""  # теперь A можно и нужно явно очистить
+    assert stack.last_media_key is None
