@@ -241,12 +241,14 @@ class VKCalendarDaysView:
         prev_text: Text | None = None,
         next_text: Text | None = None,
         more_text: Text | None = None,
+        wide: bool = False,
     ) -> None:
         self.date_text = date_text or _DEFAULT_DATE_TEXT
         self.header_text = header_text or Format("{month} {year}")
         self.prev_text = prev_text or _DEFAULT_PREV_TEXT
         self.next_text = next_text or _DEFAULT_NEXT_TEXT
         self.more_text = more_text or _DEFAULT_MORE_TEXT
+        self.wide = wide
 
     async def render(
         self,
@@ -284,11 +286,29 @@ class VKCalendarDaysView:
             ]
         ]
         total_days = _days_in_month(offset)
+        if self.wide:
+            row: list[VKButton] = []
+            for day in range(1, total_days + 1):
+                d = date(offset.year, offset.month, day)
+                scoped = {"data": data, "day": day, "date": d}
+                row.append(
+                    VKButton(
+                        "callback",
+                        await self.date_text.render_text(scoped, manager),
+                        f"{wid}:d:{d.isoformat()}",
+                    )
+                )
+                if len(row) == 5:
+                    kb.append(row)
+                    row = []
+            if row:
+                kb.append(row)
+            return kb
         per_page = config.days_per_page
         pages = math.ceil(total_days / per_page)
         page = min(page, pages - 1)
         start = page * per_page
-        row: list[VKButton] = []
+        row = []
         for day in range(start + 1, min(start + per_page, total_days) + 1):
             d = date(offset.year, offset.month, day)
             scoped = {"data": data, "day": day, "date": d}
@@ -334,7 +354,7 @@ class Calendar(Keyboard):
 
     def _init_views(self) -> dict[CalendarScope, Any]:
         return {
-            CalendarScope.DAYS: VKCalendarDaysView(),
+            CalendarScope.DAYS: VKCalendarDaysView(wide=(self._layout is CalendarLayout.WIDE)),
             CalendarScope.MONTHS: VKCalendarMonthsView(),
             CalendarScope.YEARS: VKCalendarYearsView(),
         }

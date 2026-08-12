@@ -1,4 +1,5 @@
 import json
+from datetime import date
 
 import pytest
 from vkbottle import Bot
@@ -11,7 +12,14 @@ from vkbottle_dialog.integration.setup import active_setup
 from vkbottle_dialog.payload import encode_payload
 from vkbottle_dialog.storage import MemoryStorage
 from vkbottle_dialog.widgets.input import TextInput
-from vkbottle_dialog.widgets.kbd import Button, ScrollingGroup, Select, SwitchTo
+from vkbottle_dialog.widgets.kbd import (
+    Button,
+    Calendar,
+    CalendarConfig,
+    ScrollingGroup,
+    Select,
+    SwitchTo,
+)
 from vkbottle_dialog.widgets.text import Const, Format
 
 
@@ -324,6 +332,48 @@ async def test_pagination_with_window_getter_items_end_to_end(fake_api):
     kb = json.loads(fake_api.sent("messages.edit")[-1]["keyboard"])
     first_label = kb["buttons"][0][0]["action"]["label"]
     assert first_label == "Item 6"  # 2-я страница (height=5) начинается с 6-го
+
+
+class CalendarSG(StatesGroup):
+    pick = State()
+
+
+async def test_calendar_wide_flow_start_shift_month_pick_date(fake_api):
+    picked = []
+
+    async def on_click(event, widget, manager, selected):
+        picked.append(selected)
+
+    cfg = CalendarConfig(today=lambda: date(2026, 8, 12))
+    dialog = Dialog(
+        Window(
+            Const("Календарь"),
+            Calendar(id="cal", config=cfg, on_click=on_click),
+            state=CalendarSG.pick,
+        ),
+    )
+    bot = Bot("token")
+    setup_dialogs(bot, dialog, storage=MemoryStorage(), api=fake_api)
+
+    @bot.on.message(NotInDialog(), text="/start")
+    async def start(message, dialog_manager):
+        await dialog_manager.start(CalendarSG.pick, mode=StartMode.RESET_STACK)
+
+    await bot.router.route(raw_message_new("/start"), fake_api)
+    assert len(fake_api.sent("messages.send")) == 1  # окно отправлено
+    intent = intent_of(fake_api)
+
+    payload = json.loads(encode_payload(intent, "cal:m:+1", None))
+    await bot.router.route(raw_message_event(payload), fake_api)
+    edited = fake_api.sent("messages.edit")
+    assert edited  # edit с новым заголовком месяца
+    kb = json.loads(edited[-1]["keyboard"])
+    header_label = kb["buttons"][0][1]["action"]["label"]
+    assert header_label == "Сентябрь 2026"
+
+    payload = json.loads(encode_payload(intent, "cal:d:2026-09-15", None))
+    await bot.router.route(raw_message_event(payload), fake_api)
+    assert picked == [date(2026, 9, 15)]  # on_click получил выбранную дату
 
 
 async def test_dialog_level_getter_reaches_render(fake_api):
