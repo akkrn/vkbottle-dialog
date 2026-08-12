@@ -11,10 +11,16 @@ from .base import Text
 
 
 class List(Text, Actionable, BaseScroll):
-    def __init__(self, field: Text, items: Any, sep: str = "\n",
-                 id: str | None = None, page_size: int | None = None,
-                 on_page_changed: Callable | None = None,
-                 when: WhenCondition = None) -> None:
+    def __init__(
+        self,
+        field: Text,
+        items: Any,
+        sep: str = "\n",
+        id: str | None = None,
+        page_size: int | None = None,
+        on_page_changed: Callable | None = None,
+        when: WhenCondition = None,
+    ) -> None:
         # Явная инициализация баз: Whenable.__init__ не зовёт super()
         Text.__init__(self, when)
         Actionable.__init__(self, id)
@@ -44,15 +50,21 @@ class List(Text, Actionable, BaseScroll):
             pages = math.ceil(len(items) / self._page_size)
             page = min(self.get_page(manager), pages - 1)
             start = page * self._page_size
-            items_slice = items[start:start + self._page_size]
+            items_slice = items[start : start + self._page_size]
         else:
             items_slice = items
         parts = []
         for offset, item in enumerate(items_slice):
             pos0 = start + offset
-            scoped = {"data": data, "item": item, "pos": pos0 + 1,
-                      "pos0": pos0, "current_page": page,
-                      "current_page1": page + 1, "pages": pages}
+            scoped = {
+                "data": data,
+                "item": item,
+                "pos": pos0 + 1,
+                "pos0": pos0,
+                "current_page": page,
+                "current_page1": page + 1,
+                "pages": pages,
+            }
             parts.append(await self._field.render_text(scoped, manager))
         return self._sep.join(p for p in parts if p)
 

@@ -12,9 +12,14 @@ from .base import Text
 class ScrollingText(Text, Actionable, BaseScroll):
     """Плоский посимвольный срез, как в оригинале aiogram-dialog."""
 
-    def __init__(self, text: Text, id: str, page_size: int,
-                 on_page_changed: Callable | None = None,
-                 when: WhenCondition = None) -> None:
+    def __init__(
+        self,
+        text: Text,
+        id: str,
+        page_size: int,
+        on_page_changed: Callable | None = None,
+        when: WhenCondition = None,
+    ) -> None:
         Text.__init__(self, when)
         Actionable.__init__(self, id)
         BaseScroll.__init__(self, on_page_changed)
@@ -37,4 +42,4 @@ class ScrollingText(Text, Actionable, BaseScroll):
         pages = math.ceil(len(rendered) / self._page_size)
         page = min(self.get_page(manager), pages - 1)
         offset = page * self._page_size
-        return rendered[offset:offset + self._page_size]
+        return rendered[offset : offset + self._page_size]

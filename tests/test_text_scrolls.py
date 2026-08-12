@@ -26,8 +26,7 @@ def test_page_size_requires_id():
 
 async def test_list_paged_absolute_pos_and_context(fake_manager_factory):
     m = fake_manager_factory(SG.a)
-    lst = List(Format("{pos}. {item} p{current_page1}/{pages}"),
-               items=ITEMS, id="ls", page_size=3)
+    lst = List(Format("{pos}. {item} p{current_page1}/{pages}"), items=ITEMS, id="ls", page_size=3)
     assert await lst.get_page_count({}, m) == 3
     await lst.set_page(m, 2)
     out = await lst.render_text({}, m)
@@ -58,6 +57,7 @@ async def test_scrolling_text_empty(fake_manager_factory):
 
 def test_paged_list_found_by_window_find_scroll():
     from vkbottle_dialog.window import Window
+
     lst = List(Format("{item}"), items=["a", "b"], id="ls", page_size=1)
     win = Window(lst, state=SG.a)
     assert win.find_scroll("ls") is lst
