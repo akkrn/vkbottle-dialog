@@ -9,7 +9,18 @@ from vkbottle_dialog.api.entities import LaunchMode
 from vkbottle_dialog.widgets.kbd import Group, Start, Url
 from vkbottle_dialog.widgets.text import Const
 
-from .states import CalendarSG, CounterSG, Layouts, Main, Multiwidget, Scrolls, Selects, Switch
+from .states import (
+    CalendarSG,
+    CounterSG,
+    Layouts,
+    Main,
+    Multiwidget,
+    Scrolls,
+    Selects,
+    Switch,
+    TextKb,
+    VkFeatures,
+)
 
 main_dialog = Dialog(
     Window(
@@ -23,6 +34,8 @@ main_dialog = Dialog(
             Start(Const("💯 Счётчик"), id="to_counter", state=CounterSG.MAIN),
             Start(Const("🎛 Мультивиджет"), id="to_multiwidget", state=Multiwidget.MAIN),
             Start(Const("🔢 Мастер"), id="to_switch", state=Switch.MAIN),
+            Start(Const("⌨️ Нижняя клавиатура (ЛС)"), id="to_text_kb", state=TextKb.MAIN),
+            Start(Const("✨ VK-фишки"), id="to_vk_features", state=VkFeatures.MAIN),
             Url(Const("📖 О библиотеке"), Const("https://github.com/akkrn/vkbottle-dialog")),
             width=2,
         ),

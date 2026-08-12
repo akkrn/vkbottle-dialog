@@ -6,6 +6,8 @@ from .multiwidget import multiwidget_dialog
 from .scrolls import scrolls_dialog
 from .selects import selects_dialog
 from .switch import switch_dialog
+from .text_kb import text_kb_dialog
+from .vk_features import name_dialog, vk_features_dialog
 
 ALL_DIALOGS = (
     main_dialog,
@@ -16,4 +18,7 @@ ALL_DIALOGS = (
     counter_dialog,
     multiwidget_dialog,
     switch_dialog,
+    text_kb_dialog,
+    vk_features_dialog,
+    name_dialog,
 )
