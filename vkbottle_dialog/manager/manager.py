@@ -104,13 +104,28 @@ class ManagerImpl:
         """Detached-менеджер (из InDialog/NotInDialog) не сидит под чужим
         lock'ом — start/done/update сами берут lock стека и коммитят
         (LockRegistry реентерабелен — вложенный acquire того же стека не
-        дедлочится)."""
+        дедлочится).
+
+        Стек/контекст, с которыми менеджер был сконструирован, читались ДО
+        захвата lock'а (rule.check() всего лишь смотрит, активен ли диалог) —
+        это снимок может быть устаревшим к моменту, когда мы реально
+        захватываем lock (конкурентное событие того же владельца могло
+        успеть закоммитить свою версию раньше). Поэтому перечитываем
+        стек/контекст из storage ПОСЛЕ захвата lock'а и только тогда
+        выполняем impl — иначе commit() перезаписал бы актуальный стек
+        устаревшим снимком (потерянное обновление, спека §7)."""
         if not self._detached:
             await impl(*args)
             return
         async with self._locks.acquire(self._event_ctx.stack_key):
             self._detached = False
             try:
+                self._stack = await self._proxy.load_stack(self._event_ctx.stack_key)
+                self._context = (await self._proxy.load_top(self._stack)
+                                 if not self._stack.empty() else None)
+                self._dirty_contexts = {}
+                if self._context is not None:
+                    self._dirty_contexts[self._context.intent_id] = self._context
                 await impl(*args)
                 await self.commit()
             finally:

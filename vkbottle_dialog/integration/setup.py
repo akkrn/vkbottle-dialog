@@ -68,6 +68,16 @@ def setup_dialogs(bot: Any, *dialogs: Dialog, storage: Any = None,
                   on_unknown_state: Callable | None = None,
                   stale_snackbar: str = "Окно устарело, начните заново",
                   ) -> BgManagerFactory:
+    """Подключает диалоги к боту и возвращает BgManagerFactory для bg()
+    из внешнего кода (крон, вебхуки и т.п.).
+
+    ВАЖНО: vkbottle не блокирует события между views — DialogView лишь один
+    из views в labeler.views(), выполняется наравне с остальными. Хендлеры,
+    зарегистрированные БЕЗ InDialog()/NotInDialog(), сработают поверх
+    активного диалога как обычно (диалог их не "перехватывает" и не
+    блокирует). Используйте InDialog()/NotInDialog(), чтобы хендлер
+    учитывал состояние диалога (см. README, задача 19, для деталей и
+    примеров сосуществования с обычными хендлерами)."""
     global _ACTIVE
     states_registry = StatesRegistry()
     registry = DialogRegistry(*dialogs, states_registry=states_registry)

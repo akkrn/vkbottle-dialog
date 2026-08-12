@@ -247,3 +247,30 @@ async def test_single_top_replaces_top(fake_api):
     await m.start(SingleTopSG.s)
     assert len(m.current_stack().intents) == 1
     assert m.current_context().intent_id != first_id
+
+
+async def test_detached_start_reloads_stack_under_lock(fake_api):
+    # Регрессия: rules.py строит detached-менеджер из стека, прочитанного
+    # ДО захвата lock'а (rule.check() лишь смотрит, активен ли диалог). Два
+    # конкурентных detached .start() на один и тот же изначально пустой стек
+    # раньше оба видели пустой pre-lock снимок; второй commit() затирал стек
+    # первого этим устаревшим снимком, сиротя его intent (потерянное
+    # обновление). _run_detached обязан перечитывать стек/контекст из
+    # storage ПОСЛЕ захвата lock'а, а не коммитить pre-lock снимок.
+    _, _, deps = build_world(fake_api)
+    event = ev(kind="message_new")
+    stack_a = await deps["proxy"].load_stack(event.stack_key)
+    stack_b = await deps["proxy"].load_stack(event.stack_key)
+    mgr_a = ManagerImpl(event_ctx=event, stack=stack_a, context=None, **deps)
+    mgr_a._detached = True
+    mgr_b = ManagerImpl(event_ctx=event, stack=stack_b, context=None, **deps)
+    mgr_b._detached = True
+
+    await mgr_a.start(MainSG.a)
+    await mgr_b.start(MainSG.a)
+
+    final_stack = await deps["proxy"].load_stack(event.stack_key)
+    assert len(final_stack.intents) == 2  # оба intent'а живы — вложенный диалог
+    for intent_id in final_stack.intents:
+        ctx = await deps["proxy"].load_context(intent_id)  # не должно бросить UnknownIntent
+        assert ctx.intent_id == intent_id
