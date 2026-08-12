@@ -32,6 +32,9 @@ class List(Text, Actionable, BaseScroll):
             return 0 if not items else 1
         return math.ceil(len(items) / self._page_size)
 
+    def find(self, widget_id: str) -> Any:
+        return self if widget_id == self.widget_id else None
+
     async def _render_text(self, data: dict, manager: Any) -> str:
         items = list(self._items(data))
         start = 0

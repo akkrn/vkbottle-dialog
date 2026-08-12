@@ -27,6 +27,9 @@ class ScrollingText(Text, Actionable, BaseScroll):
             return 0
         return math.ceil(len(rendered) / self._page_size)
 
+    def find(self, widget_id: str) -> Any:
+        return self if widget_id == self.widget_id else None
+
     async def _render_text(self, data: dict, manager: Any) -> str:
         rendered = await self._text.render_text(data, manager)
         if not rendered:

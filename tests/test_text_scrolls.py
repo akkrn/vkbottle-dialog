@@ -54,3 +54,13 @@ async def test_scrolling_text_empty(fake_manager_factory):
     m = fake_manager_factory(SG.a)
     st = ScrollingText(Const(""), id="st", page_size=4)
     assert await st.get_page_count({}, m) == 0
+
+
+def test_paged_list_found_by_window_find_scroll():
+    from vkbottle_dialog.window import Window
+    lst = List(Format("{item}"), items=["a", "b"], id="ls", page_size=1)
+    win = Window(lst, state=SG.a)
+    assert win.find_scroll("ls") is lst
+    st = ScrollingText(Const("abcdef"), id="st", page_size=2)
+    win2 = Window(st, state=SG.a)
+    assert win2.find_scroll("st") is st
