@@ -42,6 +42,12 @@ def decode_payload(raw: dict | str | None, secret: str | None) -> ParsedPayload 
     if raw is None:
         return None
     if isinstance(raw, str):
+        if len(raw) > 2 * PAYLOAD_MAX:
+            # M7: чужой/поддельный payload может быть сколь угодно длинным
+            # (мы сами никогда не шлём больше PAYLOAD_MAX — encode_payload
+            # это гарантирует) — отсекаем раньше json.loads(), не тратя
+            # время на парсинг заведомо мусорной строки.
+            return None
         try:
             raw = json.loads(raw)
         except (json.JSONDecodeError, ValueError):

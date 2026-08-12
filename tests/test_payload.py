@@ -3,6 +3,7 @@ import json
 import pytest
 
 from vkbottle_dialog.exceptions import InvalidPayload
+from vkbottle_dialog.limits import PAYLOAD_MAX
 from vkbottle_dialog.payload import decode_payload, encode_payload
 
 
@@ -48,3 +49,11 @@ def test_cyrillic_item_not_ascii_escaped():
 def test_oversize_raises():
     with pytest.raises(InvalidPayload):
         encode_payload("Aa1Bb2Cc3Dd", "w:" + "x" * 300, secret=None)
+
+
+def test_oversize_str_payload_returns_none_early():
+    # M7: чужой/поддельный str-payload может быть сколь угодно длинным (мы
+    # сами никогда не шлём больше PAYLOAD_MAX — отсекаем раньше json.loads(),
+    # не тратя время на парсинг заведомо мусорной строки.
+    huge = "x" * (2 * PAYLOAD_MAX + 1)
+    assert decode_payload(huge, None) is None
