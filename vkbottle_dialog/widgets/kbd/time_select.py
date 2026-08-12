@@ -5,6 +5,7 @@ from collections.abc import Callable
 from datetime import time
 from typing import Any
 
+from ...exceptions import DialogConfigError
 from ..common import WhenCondition, ensure_event_processor
 from .base import ButtonColor, Keyboard, RawKeyboard, VKButton
 
@@ -24,6 +25,10 @@ class TimeSelect(Keyboard):
         when: WhenCondition = None,
     ) -> None:
         super().__init__(id, when)
+        if minute_precision <= 0 or minute_precision > 60:
+            raise DialogConfigError("TimeSelect: minute_precision должен быть в диапазоне 1..60")
+        if hour_range[0] >= hour_range[1]:
+            raise DialogConfigError("TimeSelect: hour_range[0] должен быть меньше hour_range[1]")
         self._on_click = ensure_event_processor(on_click)
         self._on_value_changed = ensure_event_processor(on_value_changed)
         self._precision = minute_precision

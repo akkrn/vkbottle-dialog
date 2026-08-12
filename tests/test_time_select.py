@@ -1,11 +1,28 @@
 from datetime import time
 
+import pytest
+
+from vkbottle_dialog.exceptions import DialogConfigError
 from vkbottle_dialog.fsm import State, StatesGroup
 from vkbottle_dialog.widgets.kbd import ButtonColor, TimeSelect
 
 
 class SG(StatesGroup):
     a = State()
+
+
+def test_invalid_minute_precision_rejected():
+    with pytest.raises(DialogConfigError):
+        TimeSelect(id="ts", minute_precision=0)
+    with pytest.raises(DialogConfigError):
+        TimeSelect(id="ts", minute_precision=61)
+
+
+def test_invalid_hour_range_rejected():
+    with pytest.raises(DialogConfigError):
+        TimeSelect(id="ts", hour_range=(10, 10))
+    with pytest.raises(DialogConfigError):
+        TimeSelect(id="ts", hour_range=(12, 5))
 
 
 async def test_render_first_page_and_limits(fake_manager_factory):
