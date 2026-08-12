@@ -18,6 +18,9 @@ class Text(Whenable):
     async def _render_text(self, data: dict, manager: Any) -> str:
         raise NotImplementedError
 
+    def find(self, widget_id: str) -> Any:
+        return None
+
     def __add__(self, other: Text) -> Multi:
         return Multi(self, other, sep="")
 
@@ -58,6 +61,13 @@ class Multi(Text):
         parts = [await t.render_text(data, manager) for t in self._texts]
         return self._sep.join(p for p in parts if p)
 
+    def find(self, widget_id: str) -> Any:
+        for text in self._texts:
+            found = text.find(widget_id)
+            if found is not None:
+                return found
+        return None
+
 
 class Or(Text):
     def __init__(self, *texts: Text, when: WhenCondition = None) -> None:
@@ -70,6 +80,13 @@ class Or(Text):
             if rendered:
                 return rendered
         return ""
+
+    def find(self, widget_id: str) -> Any:
+        for text in self._texts:
+            found = text.find(widget_id)
+            if found is not None:
+                return found
+        return None
 
 
 Selector = str | MagicFilter | Callable[[dict, "Case", Any], Any]
@@ -99,3 +116,10 @@ class Case(Text):
                 f"Case: селектор вернул нехэшируемое значение {key!r}"
             ) from None
         return await widget.render_text(data, manager) if widget else ""
+
+    def find(self, widget_id: str) -> Any:
+        for text in self._texts.values():
+            found = text.find(widget_id)
+            if found is not None:
+                return found
+        return None
