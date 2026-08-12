@@ -92,6 +92,145 @@ _DEFAULT_DATE_TEXT = Format("{day}")
 _DEFAULT_PREV_TEXT = Const("‹")
 _DEFAULT_NEXT_TEXT = Const("›")
 _DEFAULT_MORE_TEXT = Const("⋯")
+_DEFAULT_MONTH_TEXT = Format("{month}")
+_DEFAULT_HEADER_TEXT_MONTHS = Format("{year}")
+_DEFAULT_HEADER_TEXT_YEARS = Format("{first}–{last}")
+_DEFAULT_YEAR_TEXT = Format("{year}")
+
+
+class VKCalendarMonthsView:
+    def __init__(
+        self,
+        month_text: Text | None = None,
+        header_text: Text | None = None,
+        prev_text: Text | None = None,
+        next_text: Text | None = None,
+        more_text: Text | None = None,
+    ) -> None:
+        self.month_text = month_text or _DEFAULT_MONTH_TEXT
+        self.header_text = header_text or _DEFAULT_HEADER_TEXT_MONTHS
+        self.prev_text = prev_text or _DEFAULT_PREV_TEXT
+        self.next_text = next_text or _DEFAULT_NEXT_TEXT
+        self.more_text = more_text or _DEFAULT_MORE_TEXT
+
+    async def render(
+        self,
+        data: dict,
+        manager: Any,
+        calendar: Calendar,
+        config: CalendarConfig,
+        offset: date,
+        page: int,
+    ) -> RawKeyboard:
+        wid = calendar.widget_id
+        scope_data = {"data": data, "year": offset.year}
+        kb: RawKeyboard = [
+            [
+                VKButton(
+                    "callback",
+                    await self.prev_text.render_text(scope_data, manager),
+                    f"{wid}:y:-1",
+                ),
+                VKButton(
+                    "callback",
+                    await self.header_text.render_text(scope_data, manager),
+                    f"{wid}:z:years",
+                ),
+                VKButton(
+                    "callback",
+                    await self.next_text.render_text(scope_data, manager),
+                    f"{wid}:y:+1",
+                ),
+            ]
+        ]
+        page = page % 2
+        start = page * 6
+        row: list[VKButton] = []
+        for idx in range(start, start + 6):
+            scoped = {"data": data, "month": config.month_short_names[idx], "year": offset.year}
+            row.append(
+                VKButton(
+                    "callback",
+                    await self.month_text.render_text(scoped, manager),
+                    f"{wid}:z:days:{offset.year}-{idx + 1:02d}",
+                )
+            )
+            if len(row) == 3:
+                kb.append(row)
+                row = []
+        kb.append(
+            [
+                VKButton(
+                    "callback",
+                    await self.more_text.render_text(scope_data, manager),
+                    f"{wid}:p:{(page + 1) % 2}",
+                )
+            ]
+        )
+        return kb
+
+
+class VKCalendarYearsView:
+    def __init__(
+        self,
+        year_text: Text | None = None,
+        header_text: Text | None = None,
+        prev_text: Text | None = None,
+        next_text: Text | None = None,
+    ) -> None:
+        self.year_text = year_text or _DEFAULT_YEAR_TEXT
+        self.header_text = header_text or _DEFAULT_HEADER_TEXT_YEARS
+        self.prev_text = prev_text or _DEFAULT_PREV_TEXT
+        self.next_text = next_text or _DEFAULT_NEXT_TEXT
+
+    async def render(
+        self,
+        data: dict,
+        manager: Any,
+        calendar: Calendar,
+        config: CalendarConfig,
+        offset: date,
+        page: int,
+    ) -> RawKeyboard:
+        wid = calendar.widget_id
+        per_page = config.years_per_page
+        first = offset.year - offset.year % per_page
+        scope_data = {"data": data, "first": first, "last": first + per_page - 1}
+        kb: RawKeyboard = [
+            [
+                VKButton(
+                    "callback",
+                    await self.prev_text.render_text(scope_data, manager),
+                    f"{wid}:y:-{per_page}",
+                ),
+                VKButton(
+                    "callback",
+                    await self.header_text.render_text(scope_data, manager),
+                    f"{wid}:noop",
+                ),
+                VKButton(
+                    "callback",
+                    await self.next_text.render_text(scope_data, manager),
+                    f"{wid}:y:+{per_page}",
+                ),
+            ]
+        ]
+        row = []
+        for year in range(first, first + per_page):
+            scoped = {"data": data, "year": year}
+            row.append(
+                VKButton(
+                    "callback",
+                    await self.year_text.render_text(scoped, manager),
+                    f"{wid}:z:months:{year}",
+                )
+            )
+            if len(row) == 3:
+                kb.append(row)
+                row = []
+        if row:
+            kb.append(row)
+        return kb
 
 
 class VKCalendarDaysView:
@@ -194,10 +333,14 @@ class Calendar(Keyboard):
         self._views = self._init_views()
 
     def _init_views(self) -> dict[CalendarScope, Any]:
-        return {CalendarScope.DAYS: VKCalendarDaysView()}
-        # задачи 5-6 добавят MONTHS/YEARS и WIDE-вариант DAYS
+        return {
+            CalendarScope.DAYS: VKCalendarDaysView(),
+            CalendarScope.MONTHS: VKCalendarMonthsView(),
+            CalendarScope.YEARS: VKCalendarYearsView(),
+        }
 
     async def _get_user_config(self, data: dict, manager: Any) -> CalendarUserConfig:
+        """Merged user config affects RENDER only; click-time validation uses base config."""
         return CalendarUserConfig()
 
     def _get_state(self, manager: Any) -> tuple[CalendarScope, date, int]:
@@ -221,6 +364,8 @@ class Calendar(Keyboard):
     async def _process_item_callback(self, item: str, manager: Any) -> bool:
         config = self._config  # клики валидируются базовым конфигом
         scope, offset, page = self._get_state(manager)
+        if item == "noop":
+            return True
         kind, _, arg = item.partition(":")
         if kind == "d":
             try:
@@ -240,6 +385,18 @@ class Calendar(Keyboard):
                 return False
             self._set_state(manager, scope, _shift_month(offset, delta), 0)
             return True
+        if kind == "y":
+            try:
+                delta = int(arg)
+            except ValueError:
+                return False
+            try:
+                new_offset = offset.replace(year=offset.year + delta)
+            except ValueError:
+                # Handle Feb 29 in leap year
+                new_offset = date(offset.year + delta, offset.month, 1)
+            self._set_state(manager, scope, new_offset, 0)
+            return True
         if kind == "p":
             try:
                 target = int(arg)
@@ -252,10 +409,30 @@ class Calendar(Keyboard):
         return False
 
     async def _process_zoom(self, arg: str, manager: Any, offset: date) -> bool:
-        # Задача 5 наполняет переходы; в задаче 4 z:months сохраняет scope
-        # MONTHS (вьюха появится в задаче 5) — здесь возвращаем True, но
-        # состояние не меняем, чтобы рендер не упал без вьюхи.
-        return True
+        scope, _, _ = self._get_state(manager)
+        if arg == "months":
+            self._set_state(manager, CalendarScope.MONTHS, offset, 0)
+            return True
+        if arg == "years":
+            self._set_state(manager, CalendarScope.YEARS, offset, 0)
+            return True
+        kind, _, rest = arg.partition(":")
+        if kind == "days":
+            try:
+                year, month = rest.split("-")
+                target = date(int(year), int(month), 1)
+            except ValueError:
+                return False
+            self._set_state(manager, CalendarScope.DAYS, target, 0)
+            return True
+        if kind == "months":
+            try:
+                target = date(int(rest), 1, 1)
+            except ValueError:
+                return False
+            self._set_state(manager, CalendarScope.MONTHS, target, 0)
+            return True
+        return False
 
     def managed(self, manager: Any) -> ManagedCalendar:
         return ManagedCalendar(self, manager)

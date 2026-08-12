@@ -1,5 +1,13 @@
 from .base import ButtonColor, Keyboard, Or, RawKeyboard, VKButton
 from .button import Button, Url
+from .calendar import (
+    Calendar,
+    CalendarConfig,
+    CalendarLayout,
+    CalendarScope,
+    CalendarUserConfig,
+    ManagedCalendar,
+)
 from .counter import Counter, ManagedCounter
 from .group import Column, Group, Row
 from .pager import (
@@ -29,6 +37,11 @@ __all__ = [
     "Back",
     "Button",
     "ButtonColor",
+    "Calendar",
+    "CalendarConfig",
+    "CalendarLayout",
+    "CalendarScope",
+    "CalendarUserConfig",
     "Cancel",
     "Checkbox",
     "Column",
@@ -38,6 +51,7 @@ __all__ = [
     "Group",
     "Keyboard",
     "LastPage",
+    "ManagedCalendar",
     "ManagedCheckbox",
     "ManagedCounter",
     "ManagedMultiselect",
