@@ -83,7 +83,7 @@ class Window:
         await self._on_process_result.process_event(start_data, result, manager)
 
     def find(self, widget_id: str) -> Any:
-        for slot in (self._text, self._keyboard, self._input, self._media):
+        for slot in (self._text, self._keyboard, self._input):
             if slot is not None:
                 found = slot.find(widget_id)
                 if found is not None:

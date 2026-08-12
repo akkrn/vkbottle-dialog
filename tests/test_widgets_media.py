@@ -31,6 +31,11 @@ def test_two_media_widgets_rejected():
         Window(Const("t"), StaticMedia(path="a.png"), StaticMedia(path="b.png"), state=SG.a)
 
 
+def test_ambiguous_static_media_rejected():
+    with pytest.raises(DialogConfigError):
+        StaticMedia(path="a.png", url="http://example.com")
+
+
 async def test_window_render_carries_media(fake_manager_factory):
     from vkbottle_dialog.api.entities import Stack, make_stack_key
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..api.entities import MediaAttachment
+from ..exceptions import DialogConfigError
 from .common import Whenable, WhenCondition
 from .text.base import Const, Text
 
@@ -36,6 +37,8 @@ class StaticMedia(Media):
         when: WhenCondition = None,
     ) -> None:
         super().__init__(when)
+        if path is not None and url is not None:
+            raise DialogConfigError("StaticMedia: задайте либо path, либо url, не оба")
         self._path = _ensure_text(path)
         self._url = _ensure_text(url)
         self._type = type
