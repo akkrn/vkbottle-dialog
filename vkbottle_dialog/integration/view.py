@@ -117,7 +117,7 @@ class DialogView(ABCView):
                 return  # обычное сообщение вне диалога — путь пользовательских хендлеров
             try:
                 context = await self._validate(parsed, stack)
-            except (UnknownIntent, OutdatedIntent, InvalidPayload) as e:
+            except (UnknownIntent, UnknownState, OutdatedIntent, InvalidPayload) as e:
                 await self._recover(e, ev, stack, message_manager, ctx_api, latch)
                 return
             if context is None:  # message_new без payload при активном диалоге
@@ -163,7 +163,7 @@ class DialogView(ABCView):
                                    latch: AnswerLatch | None) -> Any:
         try:
             return await self.proxy.load_top(stack)
-        except UnknownIntent as e:
+        except (UnknownIntent, UnknownState) as e:
             await self._recover(e, ev, stack, mm, ctx_api, latch)
             return None
 

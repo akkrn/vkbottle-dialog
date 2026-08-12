@@ -4,8 +4,10 @@ import pytest
 from vkbottle import Bot
 
 from vkbottle_dialog import Dialog, StartMode, Window, setup_dialogs
+from vkbottle_dialog.api.entities import make_stack_key
 from vkbottle_dialog.fsm import State, StatesGroup
-from vkbottle_dialog.integration.rules import NotInDialog
+from vkbottle_dialog.integration.rules import InDialog, NotInDialog
+from vkbottle_dialog.integration.setup import active_setup
 from vkbottle_dialog.payload import encode_payload
 from vkbottle_dialog.storage import MemoryStorage
 from vkbottle_dialog.widgets.input import TextInput
@@ -134,3 +136,59 @@ async def test_user_handler_not_in_dialog(world):
     # RESET_STACK-пересоздания не было. DialogView перерисовал окно текстовым
     # триггером (send) — допустимо; intent окна остался прежним.
     assert intent_of(api) == intent_before
+
+
+async def test_indialog_done_clears_stack(world):
+    bot, api, _, _ = world
+
+    @bot.on.message(InDialog(), text="/cancel")
+    async def cancel(message, dialog_manager):
+        await dialog_manager.done()
+
+    await bot.router.route(raw_message_new("/start"), api)
+    await bot.router.route(raw_message_new("/cancel"), api)
+
+    deps = active_setup()
+    stack = await deps.proxy.load_stack(make_stack_key(99, 5, 5))
+    assert stack.empty()
+
+
+async def test_unknown_state_gets_single_ack_and_recovers(fake_api):
+    # Регрессия: персистентный контекст может пережить деплой, в котором
+    # состояние переименовали/удалили — _validate()/_load_top_or_recover()
+    # обязаны ловить UnknownState (не только UnknownIntent/OutdatedIntent/
+    # InvalidPayload), иначе клик остаётся без ack (завис спиннер) и
+    # on_unknown_state никогда не вызывается.
+    recovered = []
+
+    async def on_unknown_state(event, manager):
+        recovered.append(event)
+
+    dialog = Dialog(
+        Window(Const("Меню"), Button(Const("Жми"), id="go"), state=SG.menu),
+    )
+    bot = Bot("token")
+    storage = MemoryStorage()
+    setup_dialogs(bot, dialog, storage=storage, api=fake_api,
+                  on_unknown_state=on_unknown_state)
+
+    @bot.on.message(NotInDialog(), text="/start")
+    async def start(message, dialog_manager):
+        await dialog_manager.start(SG.menu, mode=StartMode.RESET_STACK)
+
+    await bot.router.route(raw_message_new("/start"), fake_api)
+    intent = intent_of(fake_api)
+
+    # Симулируем переименование/удаление состояния после релиза: портим
+    # сохранённый контекст так, чтобы его "state" не резолвился.
+    raw_ctx = await storage.get(f"vkd:context:{intent}")
+    raw_ctx["state"] = "SG:removed_state"
+    await storage.set(f"vkd:context:{intent}", raw_ctx)
+
+    payload = json.loads(encode_payload(intent, "go", None))
+    await bot.router.route(raw_message_event(payload), fake_api)
+
+    answers = fake_api.sent("messages.sendMessageEventAnswer")
+    assert len(answers) == 1  # ack ровно один — без него VK покажет спиннер навечно
+    assert "snackbar" in answers[0].get("event_data", "")
+    assert len(recovered) == 1  # on_unknown_state вызван
