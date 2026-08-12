@@ -5,10 +5,25 @@ description = "Declarative dialogs for VK bots on top of vkbottle (aiogram-dialo
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
+authors = [{ name = "Anton Kokorin" }]
+keywords = ["vk", "vkbottle", "dialog", "bot", "ui"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
 dependencies = ["vkbottle>=4.5", "magic-filter>=1.0"]
 
 [project.optional-dependencies]
 redis = ["redis>=5.0"]
+
+[project.urls]
+Homepage = "https://github.com/akkrn/vkbottle-dialog"
+Repository = "https://github.com/akkrn/vkbottle-dialog"
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=0.24", "ruff>=0.6", "mypy>=1.11", "fakeredis>=2.24"]
