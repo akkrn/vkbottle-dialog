@@ -12,5 +12,7 @@ jobs:
       - run: uv python install ${{ matrix.python }}
       - run: uv sync --python ${{ matrix.python }}
       - run: uv run ruff check .
+      - run: uv run ruff format --check .
       - run: uv run mypy vkbottle_dialog
       - run: uv run pytest -q
+      - run: uv build
