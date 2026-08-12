@@ -124,7 +124,7 @@ class DialogView(ABCView):
         if kind == "message_event" and parsed is None:
             return  # чужое событие (не наш __vkd__) — без ack
 
-        message_manager = MessageManager(ctx_api)
+        message_manager = MessageManager(ctx_api, media_resolver=self.config.media_resolver)
         async with self.locks.acquire(ev.stack_key):
             # M3: любое неожиданное исключение в теле под lock'ом (не только
             # в _dispatch) обязано ack'нуть message_event перед пробросом —

@@ -14,8 +14,9 @@ logger = logging.getLogger("vkbottle_dialog")
 
 
 class MessageManager:
-    def __init__(self, api: Any) -> None:
+    def __init__(self, api: Any, media_resolver: Any = None) -> None:
         self._api = api
+        self._media_resolver = media_resolver
 
     async def show_message(
         self, new: NewMessage, stack: Stack, *, trigger: str, now: float
@@ -58,6 +59,13 @@ class MessageManager:
             and now - stack.last_message_sent_at < EDIT_WINDOW_SECONDS
         )
 
+    async def _resolve_media(self, new: NewMessage) -> tuple[str | None, bool]:
+        """(attachment | None, failed) — None+False когда медиа нет."""
+        if new.media is None or self._media_resolver is None:
+            return None, False
+        attachment = await self._media_resolver.resolve(new.media, new.peer_id)
+        return attachment, attachment is None
+
     async def _edit_or_send(self, new: NewMessage, stack: Stack, now: float) -> None:
         if not self._editable(stack, now):
             await self._send(new, stack, now)
@@ -71,15 +79,23 @@ class MessageManager:
         }
         if new.keyboard is not None:
             params["keyboard"] = new.keyboard  # всегда с клавиатурой — иначе VK сотрёт
+        attachment, failed = await self._resolve_media(new)
+        if attachment is not None:
+            params["attachment"] = attachment
+        elif new.media is None and stack.last_media_key:
+            params["attachment"] = ""  # явная очистка — омит не очищает вложение
         try:
             await self._api.request("messages.edit", params)
         except VKAPIError as e:
             logger.debug("edit failed (%s), отправляю новое окно", e)
             await self._send(new, stack, now)
             return
-        stack.last_render_hash = new.render_hash()
+        stack.last_render_hash = new.render_hash("media:failed" if failed else None)
         stack.last_keyboard_kind = new.keyboard_kind
         stack.last_text = new.text
+        stack.last_media_key = (
+            new.media.source_key() if attachment is not None and new.media else None
+        )
 
     async def _send(self, new: NewMessage, stack: Stack, now: float) -> None:
         params: dict = {
@@ -91,13 +107,19 @@ class MessageManager:
         }
         if new.keyboard is not None:
             params["keyboard"] = new.keyboard
+        attachment, failed = await self._resolve_media(new)
+        if attachment is not None:
+            params["attachment"] = attachment
         response = await self._api.request("messages.send", params)
         item = response["response"][0]
         stack.last_cmid = item["conversation_message_id"]
         stack.last_message_sent_at = now
         stack.last_keyboard_kind = new.keyboard_kind
-        stack.last_render_hash = new.render_hash()
+        stack.last_render_hash = new.render_hash("media:failed" if failed else None)
         stack.last_text = new.text
+        stack.last_media_key = (
+            new.media.source_key() if attachment is not None and new.media else None
+        )
 
     async def _strip_old_kbd(self, stack: Stack, peer_id: int, now: float) -> None:
         if stack.last_keyboard_kind is not KeyboardKind.INLINE or not self._editable(stack, now):

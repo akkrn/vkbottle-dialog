@@ -159,7 +159,11 @@ class NewMessage:
     dont_parse_links: bool = False
     show_mode: ShowMode = ShowMode.AUTO
 
-    def render_hash(self) -> str:
-        media_key = self.media.source_key() if self.media else ""
+    def render_hash(self, media_override: str | None = None) -> str:
+        media_key = (
+            media_override
+            if media_override is not None
+            else (self.media.source_key() if self.media else "")
+        )
         raw = f"{self.text}\x00{self.keyboard or ''}\x00{media_key}"
         return hashlib.sha256(raw.encode()).hexdigest()[:16]

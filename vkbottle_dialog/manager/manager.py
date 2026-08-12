@@ -29,6 +29,7 @@ class DialogConfig:
     now: Callable[[], float] = time.time
     global_getter: Any = None
     stale_snackbar: str = "Окно устарело, начните заново"
+    media_resolver: Any = None
 
 
 class ManagerImpl:

@@ -11,6 +11,7 @@ from ..exceptions import DialogConfigError
 from ..fsm import State, StatesRegistry
 from ..manager.bg_manager import BgManagerFactory
 from ..manager.manager import DialogConfig
+from ..manager.media_resolver import MediaResolver
 from ..manager.message_manager import MessageManager
 from .view import DialogView
 
@@ -55,7 +56,7 @@ class SetupDeps:
         self._api = api
 
     def message_manager(self, ctx_api: Any = None) -> MessageManager:
-        return MessageManager(ctx_api or self._api)
+        return MessageManager(ctx_api or self._api, media_resolver=self.config.media_resolver)
 
     def group_id(self) -> int:
         return self.bg_factory._group_id
@@ -106,10 +107,11 @@ def setup_dialogs(
     if markup_factory is not None:
         config.default_markup_factory = markup_factory
     the_api = api or bot.api
+    config.media_resolver = MediaResolver(the_api, storage=storage or None)
     bg_factory = BgManagerFactory(
         registry=registry,
         proxy=proxy,
-        message_manager=MessageManager(the_api),
+        message_manager=MessageManager(the_api, media_resolver=config.media_resolver),
         locks=locks,
         config=config,
     )
