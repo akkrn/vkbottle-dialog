@@ -1343,7 +1343,7 @@ wheels = [
 
 [[package]]
 name = "vkbottle-dialog"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "magic-filter" },
@@ -1368,7 +1368,7 @@ dev = [
 requires-dist = [
     { name = "magic-filter", specifier = ">=1.0" },
     { name = "redis", marker = "extra == 'redis'", specifier = ">=5.0" },
-    { name = "vkbottle", specifier = ">=4.5" },
+    { name = "vkbottle", specifier = ">=4.10" },
 ]
 provides-extras = ["redis"]
 
