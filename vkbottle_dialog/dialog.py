@@ -98,13 +98,13 @@ class Dialog:
     def find(self, widget_id: str) -> Any:
         for window in self._windows.values():
             found = window.find(widget_id)
-            if found:
+            if found is not None:
                 return found
         return None
 
     def find_scroll(self, widget_id: str) -> Any:
         for window in self._windows.values():
             found = window.find_scroll(widget_id)
-            if found:
+            if found is not None:
                 return found
         return None

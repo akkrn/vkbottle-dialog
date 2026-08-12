@@ -85,7 +85,7 @@ class Window:
         for slot in (self._text, self._keyboard, self._input):
             if slot is not None:
                 found = slot.find(widget_id)
-                if found:
+                if found is not None:
                     return found
         return None
 
