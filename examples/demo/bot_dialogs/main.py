@@ -6,16 +6,18 @@
 
 from vkbottle_dialog import Dialog, Window
 from vkbottle_dialog.api.entities import LaunchMode
-from vkbottle_dialog.widgets.kbd import Group, Url
+from vkbottle_dialog.widgets.kbd import Group, Start, Url
 from vkbottle_dialog.widgets.text import Const
 
-from .states import Main
+from .states import Layouts, Main, Selects
 
 main_dialog = Dialog(
     Window(
         Const("vkbottle-dialog: витрина виджетов"),
         Const("Выберите секцию:"),
         Group(
+            Start(Const("📐 Лейауты"), id="to_layouts", state=Layouts.MAIN),
+            Start(Const("☑️ Селекты"), id="to_selects", state=Selects.MAIN),
             Url(Const("📖 О библиотеке"), Const("https://github.com/akkrn/vkbottle-dialog")),
             width=2,
         ),
