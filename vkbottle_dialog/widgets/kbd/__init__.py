@@ -1,5 +1,6 @@
 from .base import ButtonColor, Keyboard, Or, RawKeyboard, VKButton
 from .button import Button, Url
+from .counter import Counter, ManagedCounter
 from .group import Column, Group, Row
 from .pager import (
     CurrentPage,
@@ -31,12 +32,14 @@ __all__ = [
     "Cancel",
     "Checkbox",
     "Column",
+    "Counter",
     "CurrentPage",
     "FirstPage",
     "Group",
     "Keyboard",
     "LastPage",
     "ManagedCheckbox",
+    "ManagedCounter",
     "ManagedMultiselect",
     "ManagedRadio",
     "ManagedToggle",
