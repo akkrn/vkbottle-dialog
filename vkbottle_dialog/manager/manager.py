@@ -200,12 +200,27 @@ class ManagerImpl:
         self._context = None
 
     async def switch_to(self, state: State, show_mode: ShowMode | None = None) -> None:
+        # Снимаем _detached ДО _run_detached (он временно обнуляет флаг на
+        # время reload+impl) — так impl знает, рендерить ли самому. Обычный
+        # (не-detached) вызов из хендлера окна ничего не рендерит — это
+        # делает DialogView.handle_event по _need_refresh() ПОСЛЕ диспатча
+        # (intent_id не меняется → двойной рендер иначе). Detached-вызов
+        # (InDialog()-хендлер) — сам себе хвост события: без явного show()
+        # здесь переключение состояния осталось бы silent no-op для юзера.
+        detached = self._detached
+        await self._run_detached(self._switch_to_impl, state, show_mode, detached)
+
+    async def _switch_to_impl(
+        self, state: State, show_mode: ShowMode | None, render: bool
+    ) -> None:
         ctx = self.current_context()
         if state.group is not ctx.state.group:
             raise DialogConfigError(f"switch_to в чужую группу {state.state}; используйте start()")
         if show_mode is not None:
             self.show_mode = show_mode
         ctx.state = state
+        if render:
+            await self.show()
 
     async def next(self, show_mode: ShowMode | None = None) -> None:
         states = self.dialog().states()

@@ -176,6 +176,33 @@ async def test_indialog_done_clears_stack(world):
     assert stack.empty()
 
 
+async def test_indialog_switch_to_renders_and_persists(world):
+    # Регрессия I1: detached-менеджер, который InDialog() строит для
+    # хендлера, раньше не проходил через _run_detached в switch_to/next/
+    # back — переключение состояния мутировало throwaway-менеджер без
+    # lock/render/commit и терялось бесследно (silent no-op для юзера).
+    bot, api, _, _ = world
+
+    @bot.on.message(InDialog(), text="/next")
+    async def go_next(message, dialog_manager):
+        await dialog_manager.switch_to(SG.form)
+
+    await bot.router.route(raw_message_new("/start"), api)
+    sends_before = len(api.sent("messages.send"))
+    edits_before = len(api.sent("messages.edit"))
+
+    await bot.router.route(raw_message_new("/next"), api)
+
+    deps = active_setup()
+    stack = await deps.proxy.load_stack(make_stack_key(99, 5, 5))
+    ctx = await deps.proxy.load_top(stack)
+    assert ctx.state is SG.form  # переключение реально закоммичено
+    # рендер произошёл (edit свежего окна текстовым триггером)
+    assert len(api.sent("messages.send")) + len(api.sent("messages.edit")) > (
+        sends_before + edits_before
+    )
+
+
 async def test_unknown_state_gets_single_ack_and_recovers(fake_api):
     # Регрессия: персистентный контекст может пережить деплой, в котором
     # состояние переименовали/удалили — _validate()/_load_top_or_recover()
