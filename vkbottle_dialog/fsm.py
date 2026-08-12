@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .exceptions import UnknownState
+from .exceptions import DialogConfigError, UnknownState
 
 
 class State:
@@ -52,6 +52,13 @@ class StatesRegistry:
         self._groups: dict[str, type[StatesGroup]] = {}
 
     def register(self, group: type[StatesGroup]) -> None:
+        existing = self._groups.get(group.__name__)
+        if existing is not None and existing is not group:
+            raise DialogConfigError(
+                f"две разные StatesGroup с одинаковым именем {group.__name__!r} — "
+                "имена групп используются как ключ сериализации состояния "
+                "(State.state = 'Group:name'), совпадение сломает resolve()"
+            )
         self._groups[group.__name__] = group
 
     def group_of(self, name: str) -> type[StatesGroup]:

@@ -1,6 +1,6 @@
 import pytest
 
-from vkbottle_dialog.exceptions import UnknownState
+from vkbottle_dialog.exceptions import DialogConfigError, UnknownState
 from vkbottle_dialog.fsm import State, StatesGroup, StatesRegistry
 
 
@@ -33,6 +33,31 @@ def test_registry_resolve():
         reg.resolve("SG:nope")
     with pytest.raises(UnknownState):
         reg.resolve("Other:first")
+
+
+def test_registry_register_idempotent_for_same_class():
+    reg = StatesRegistry()
+    reg.register(SG)
+    reg.register(SG)  # тот же класс повторно — не ошибка (несколько окон на группу)
+    assert reg.group_of("SG") is SG
+
+
+def test_registry_rejects_different_class_same_name():
+    # M5: имя группы — ключ сериализации состояния (State.state =
+    # "Group:name"), совпадение имён у РАЗНЫХ классов сломает resolve()
+    # (вернёт не тот класс/состояния) — должно падать раньше, при регистрации.
+    class GroupA(StatesGroup):
+        x = State()
+
+    class GroupB(StatesGroup):
+        y = State()
+
+    GroupB.__name__ = "GroupA"  # форсируем совпадение имени с другим классом
+
+    reg = StatesRegistry()
+    reg.register(GroupA)
+    with pytest.raises(DialogConfigError):
+        reg.register(GroupB)
 
 
 def test_states_inheritance():
