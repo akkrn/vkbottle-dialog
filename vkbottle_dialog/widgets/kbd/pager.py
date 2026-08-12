@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ...exceptions import DialogConfigError
 from ..common import WhenCondition
 from ..text.base import Const, Format, Text
 from .base import Keyboard, RawKeyboard, VKButton
@@ -13,7 +14,13 @@ class BasePager(Keyboard):
         self._scroll_id = scroll_id
 
     def _scroll(self, manager: Any):
-        return manager.find_scroll(self._scroll_id)
+        scroll = manager.find_scroll(self._scroll_id)
+        if scroll is None:
+            raise DialogConfigError(
+                f"пейджер {self.widget_id!r} ссылается на несуществующий scroll_id "
+                f"{self._scroll_id!r} — проверьте id ScrollingGroup/StubScroll в окне"
+            )
+        return scroll
 
     async def _process_item_callback(self, item: str, manager: Any) -> bool:
         try:

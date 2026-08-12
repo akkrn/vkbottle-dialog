@@ -1,3 +1,6 @@
+import pytest
+
+from vkbottle_dialog.exceptions import DialogConfigError
 from vkbottle_dialog.fsm import State, StatesGroup
 from vkbottle_dialog.widgets.kbd import (
     Button,
@@ -80,3 +83,15 @@ async def test_stub_scroll_clamps_page(fake_manager_factory):
     m._data = {"pages": 3}
     await stub.process_callback("st:99", m)
     assert stub.get_page(m) == 2  # clamped to pages-1
+
+
+async def test_pager_raises_on_missing_scroll_id(fake_manager_factory):
+    # M8: пейджер, ссылающийся на несуществующий scroll_id (опечатка/окно
+    # без соответствующего ScrollingGroup/StubScroll), раньше падал глубже
+    # с невнятным AttributeError на None — теперь явная DialogConfigError
+    # с именем виджета и scroll_id.
+    m = fake_manager_factory(SG.a)
+    m.find_scroll = lambda sid: None
+    pager = NextPage(scroll_id="missing", id="np")
+    with pytest.raises(DialogConfigError, match="missing"):
+        await pager.render_keyboard({}, m)
