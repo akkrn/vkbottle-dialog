@@ -83,8 +83,8 @@ vkbottle **не блокирует** события между views: `DialogVie
 
 **(б) В настройках сообщества обязательно включить событие `message_event` и Long Poll API.**
 Инлайн-клавиатуры диалогов кликаются через `message_event` (callback-кнопки) — без этого события
-нажатия на кнопки будут молча теряться. Long Poll API должен быть включён и настроен на версию API,
-поддерживающую `message_event` (VK API ≥ 5.103).
+нажатия на кнопки будут молча теряться. Long Poll API должен быть включён, версия Long Poll API
+5.199 (событие `message_event` доступно с 5.103).
 
 ## Соответствие aiogram-dialog → vkbottle-dialog
 
@@ -158,7 +158,8 @@ vkbottle **не блокирует** события между views: `DialogVie
 **Настройка сообщества:**
 1. Создайте сообщество VK (или используйте тестовое) и получите ключ доступа сообщества
    (Управление → Работа с API → Ключи доступа).
-2. Управление → Работа с API → Long Poll API — включите его, версия API **5.199+**.
+2. Управление → Работа с API → Long Poll API — включите его, версия Long Poll API **5.199**
+   (событие `message_event` доступно с 5.103, но 5.199 — актуальная).
 3. Там же, в Типы событий, включите **`message_event`** (и `message_new`) — без него клики по
    инлайн-кнопкам будут молча теряться (см. «Обязательно» выше).
 
@@ -174,10 +175,13 @@ VK_TOKEN=<ключ_доступа_сообщества> python -m examples.demo.
 [Unit]
 Description=vkbottle-dialog demo bot
 [Service]
+User=vkbot
 WorkingDirectory=/opt/vkbottle-dialog
 Environment=VK_TOKEN=<ключ_доступа_сообщества>
 ExecStart=/opt/vkbottle-dialog/.venv/bin/python -m examples.demo.bot
 Restart=on-failure
+[Install]
+WantedBy=multi-user.target
 ```
 
 **Чеклист ручного смоука** (после автотестов — вручную, в реальном клиенте VK):

@@ -15,7 +15,10 @@ from vkbottle_dialog.integration import NotInDialog
 from vkbottle_dialog.storage import MemoryStorage
 
 # Секции главного меню, чьё стартовое окно — список подсекций (SwitchTo),
-# а не самостоятельное окно виджетов.
+# а не самостоятельное окно виджетов. Новую секцию с таким же паттерном
+# добавлять сюда — единственный дрифт-guard на полноту этого множества это
+# `assert len(section_ids) == 9` ниже (упадёт, если добавили секцию в меню,
+# но забыли сюда).
 SUBMENU_SECTIONS = {"to_layouts", "to_scrolls", "to_selects", "to_calendar", "to_vk_features"}
 
 
@@ -126,6 +129,17 @@ async def click(bot, api, payload: dict) -> dict:
     return kb
 
 
+async def walk_switch_wizard(bot, api, main_kb: dict) -> dict:
+    """«Мастер» (`to_switch`) не подменю: его 3 окна (MAIN → INPUT → LAST)
+    идут по порядку состояний диалога через `Next()` (виджет с id по
+    умолчанию `"__next__"` в обоих окнах — раз он свой в каждом окне, дублей
+    id внутри одного окна нет), а не через список SwitchTo, поэтому не
+    попадает в SUBMENU_SECTIONS и обходится отдельно."""
+    input_kb = await click(bot, api, button_payloads(main_kb)["__next__"])
+    last_kb = await click(bot, api, button_payloads(input_kb)["__next__"])
+    return button_payloads(last_kb)["__main__"]
+
+
 async def test_walk_every_demo_section_and_subsection(demo_bot, fake_api):
     bot, api = demo_bot, fake_api
 
@@ -157,6 +171,8 @@ async def test_walk_every_demo_section_and_subsection(demo_bot, fake_api):
                 sub_kb = await click(bot, api, sub_payload)
                 back_payload = button_payloads(sub_kb)["__back__"]
                 await click(bot, api, back_payload)
+        elif section_id == "to_switch":
+            main_menu_payload = await walk_switch_wizard(bot, api, section_kb)
         else:
             main_menu_payload = button_payloads(section_kb)["__main__"]
 
