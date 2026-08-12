@@ -32,6 +32,7 @@ from .select import (
     Toggle,
 )
 from .state import Back, Cancel, Next, Start, SwitchTo
+from .time_select import ManagedTimeSelect, TimeSelect
 
 __all__ = [
     "Back",
@@ -56,6 +57,7 @@ __all__ = [
     "ManagedCounter",
     "ManagedMultiselect",
     "ManagedRadio",
+    "ManagedTimeSelect",
     "ManagedToggle",
     "Multiselect",
     "Next",
@@ -72,6 +74,7 @@ __all__ = [
     "StubScroll",
     "SwitchPage",
     "SwitchTo",
+    "TimeSelect",
     "Toggle",
     "Url",
     "VKButton",
