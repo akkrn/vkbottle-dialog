@@ -1,6 +1,7 @@
 import pytest
 
 from vkbottle_dialog.api.entities import MediaAttachment
+from vkbottle_dialog.context.memory import MemoryStorage
 from vkbottle_dialog.manager.media_resolver import MediaResolver
 
 
@@ -74,3 +75,61 @@ async def test_failure_degrades_to_none(resolver, tmp_path):
     f = tmp_path / "a.png"
     f.write_bytes(b"x")
     assert await r.resolve(MediaAttachment(path=str(f)), peer_id=1) is None
+
+
+async def test_storage_round_trip_across_instances(tmp_path):
+    uploader = FakeUploader(None)
+    storage = MemoryStorage()
+    f = tmp_path / "a.png"
+    f.write_bytes(b"x")
+    media = MediaAttachment(path=str(f))
+
+    r1 = MediaResolver(
+        api=None,
+        storage=storage,
+        photo_uploader_factory=lambda api: uploader,
+        doc_uploader_factory=lambda api: uploader,
+    )
+    first = await r1.resolve(media, peer_id=1)
+    assert len(uploader.calls) == 1
+
+    # fresh resolver instance -> empty in-memory cache, same storage
+    r2 = MediaResolver(
+        api=None,
+        storage=storage,
+        photo_uploader_factory=lambda api: uploader,
+        doc_uploader_factory=lambda api: uploader,
+    )
+    second = await r2.resolve(media, peer_id=1)
+    assert second == first
+    assert len(uploader.calls) == 1  # no new upload, storage hit
+
+
+async def test_broken_storage_degrades_but_upload_succeeds(tmp_path):
+    class BrokenStorage:
+        async def get(self, key):
+            raise RuntimeError("storage down")
+
+        async def set(self, key, data):
+            raise RuntimeError("storage down")
+
+        async def delete(self, key):
+            raise RuntimeError("storage down")
+
+        async def touch(self, *keys):
+            raise RuntimeError("storage down")
+
+    uploader = FakeUploader(None)
+    r = MediaResolver(
+        api=None,
+        storage=BrokenStorage(),
+        photo_uploader_factory=lambda api: uploader,
+        doc_uploader_factory=lambda api: uploader,
+    )
+    f = tmp_path / "a.png"
+    f.write_bytes(b"x")
+    media = MediaAttachment(path=str(f))
+
+    result = await r.resolve(media, peer_id=1)
+    assert result == "photo1_1_key"
+    assert len(uploader.calls) == 1

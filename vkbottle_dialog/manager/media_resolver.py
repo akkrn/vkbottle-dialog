@@ -76,12 +76,20 @@ class MediaResolver:
     async def _storage_get(self, key: str) -> str | None:
         if self._storage is None:
             return None
-        doc = await self._storage.get(self._storage_key(key))
+        try:
+            doc = await self._storage.get(self._storage_key(key))
+        except Exception as e:
+            logger.warning("media cache storage get failed: %r", e)
+            return None
         return doc.get("attachment") if doc else None
 
     async def _storage_set(self, key: str, attachment: str) -> None:
-        if self._storage is not None:
+        if self._storage is None:
+            return
+        try:
             await self._storage.set(self._storage_key(key), {"attachment": attachment})
+        except Exception as e:
+            logger.warning("media cache storage set failed: %r", e)
 
     @staticmethod
     def _storage_key(key: str) -> str:
