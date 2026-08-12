@@ -102,12 +102,12 @@ vkbottle **не блокирует** события между views: `DialogVie
 | `ListGroup` | `List` (постраничный вывод `page_size`) | ✅ |
 | `Text` + `ScrollingGroup` | `ScrollingText` | ✅ |
 | Медиа-виджеты (`StaticMedia`) | `StaticMedia` + `MediaResolver` (кэш загрузок) | ✅ |
-| Jinja-шаблоны для текста | `Text.find` (условный форматинг) | ✅ |
 | `ListGroup`, `SubManager` | — | 🗺️ роадмап |
 | `DynamicMedia` | — | 🗺️ роадмап |
 | Карусель (media group) | — | 🗺️ роадмап |
 | `StartMode.NEW_STACK` | — | 🗺️ роадмап (пока `NotImplementedError`) |
 | `AccessSettings` | — | 🗺️ роадмап |
+| Jinja-шаблоны для текста | — | 🗺️ роадмап |
 | Мульти-инстанс (несколько `setup_dialogs` в процессе) | — | 🗺️ роадмап (сейчас один `setup_dialogs` на процесс) |
 
 ## Календарь и лимиты VK
