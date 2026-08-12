@@ -2,7 +2,9 @@ from datetime import date
 
 from vkbottle_dialog.fsm import State, StatesGroup
 from vkbottle_dialog.widgets.kbd import (
-    Calendar, CalendarConfig, CalendarScope,
+    Calendar,
+    CalendarConfig,
+    CalendarScope,
 )
 
 

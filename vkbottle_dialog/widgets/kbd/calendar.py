@@ -215,7 +215,7 @@ class VKCalendarYearsView:
                 ),
             ]
         ]
-        row = []
+        row: list[VKButton] = []
         for year in range(first, first + per_page):
             scoped = {"data": data, "year": year}
             row.append(
@@ -409,7 +409,6 @@ class Calendar(Keyboard):
         return False
 
     async def _process_zoom(self, arg: str, manager: Any, offset: date) -> bool:
-        scope, _, _ = self._get_state(manager)
         if arg == "months":
             self._set_state(manager, CalendarScope.MONTHS, offset, 0)
             return True
