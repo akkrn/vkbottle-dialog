@@ -126,52 +126,62 @@ class DialogView(ABCView):
 
         message_manager = MessageManager(ctx_api)
         async with self.locks.acquire(ev.stack_key):
-            stack = await self.proxy.load_stack(ev.stack_key)
-            if kind == "message_new":
-                inline = client_info.get("inline_keyboard")
-                if inline is not None:
-                    stack.inline_supported = inline
-            if parsed is None and stack.empty():
-                return  # обычное сообщение вне диалога — путь пользовательских хендлеров
+            # M3: любое неожиданное исключение в теле под lock'ом (не только
+            # в _dispatch) обязано ack'нуть message_event перед пробросом —
+            # иначе VK-клиент виснет со спиннером навечно. latch.answer()
+            # идемпотентен (answered-флаг), так что двойной ack ниже по коду
+            # безопасен.
             try:
-                context = await self._validate(parsed, stack)
-            except (UnknownIntent, UnknownState, OutdatedIntent, InvalidPayload) as e:
-                await self._recover(e, ev, stack, message_manager, ctx_api, latch)
-                return
-            if context is None:  # message_new без payload при активном диалоге
-                context = await self._load_top_or_recover(
-                    ev, stack, message_manager, ctx_api, latch
-                )
-                if context is None:
+                stack = await self.proxy.load_stack(ev.stack_key)
+                if kind == "message_new":
+                    inline = client_info.get("inline_keyboard")
+                    if inline is not None:
+                        stack.inline_supported = inline
+                if parsed is None and stack.empty():
+                    return  # обычное сообщение вне диалога — путь пользовательских хендлеров
+                try:
+                    context = await self._validate(parsed, stack)
+                except (UnknownIntent, UnknownState, OutdatedIntent, InvalidPayload) as e:
+                    await self._recover(e, ev, stack, message_manager, ctx_api, latch)
                     return
+                if context is None:  # message_new без payload при активном диалоге
+                    context = await self._load_top_or_recover(
+                        ev, stack, message_manager, ctx_api, latch
+                    )
+                    if context is None:
+                        return
 
-            manager = ManagerImpl(
-                event_ctx=ev,
-                registry=self.registry,
-                proxy=self.proxy,
-                message_manager=message_manager,
-                locks=self.locks,
-                config=self.config,
-                stack=stack,
-                context=context,
-                event=obj,
-                middleware_data={"ctx_api": ctx_api},
-            )
-            manager._answer_latch = latch
-            try:
-                processed = await self._dispatch(manager, parsed, kind, obj)
-            except CancelEventProcessing:
-                processed = None  # подавить перерисовку
-            except Exception:
-                if latch is not None:
-                    await latch.answer()
+                manager = ManagerImpl(
+                    event_ctx=ev,
+                    registry=self.registry,
+                    proxy=self.proxy,
+                    message_manager=message_manager,
+                    locks=self.locks,
+                    config=self.config,
+                    stack=stack,
+                    context=context,
+                    event=obj,
+                    middleware_data={"ctx_api": ctx_api},
+                )
+                manager._answer_latch = latch
+                try:
+                    processed = await self._dispatch(manager, parsed, kind, obj)
+                except CancelEventProcessing:
+                    processed = None  # подавить перерисовку
+                except Exception:
+                    if latch is not None:
+                        await latch.answer()
+                    await manager.commit()
+                    raise  # -> vkbottle error_handler
+                if latch is not None and not latch.answered:
+                    await latch.answer()  # ack до рендера (latency budget, спека §5)
+                if processed is not None and self._need_refresh(manager, context, processed):
+                    await manager.show()
                 await manager.commit()
-                raise  # -> vkbottle error_handler
-            if latch is not None and not latch.answered:
-                await latch.answer()  # ack до рендера (latency budget, спека §5)
-            if processed is not None and self._need_refresh(manager, context, processed):
-                await manager.show()
-            await manager.commit()
+            except Exception:
+                if latch is not None and not latch.answered:
+                    await latch.answer()
+                raise
 
     async def _validate(self, parsed: ParsedPayload | None, stack: Any) -> Any:
         if parsed is None:

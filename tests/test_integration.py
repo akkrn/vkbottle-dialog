@@ -203,6 +203,34 @@ async def test_indialog_switch_to_renders_and_persists(world):
     )
 
 
+async def test_message_event_exception_before_dispatch_still_acks(world):
+    # M3: до фикса только исключение ВНУТРИ _dispatch гарантировало ack.
+    # Исключение раньше (в _validate/load_stack/ManagerImpl(...)) — тоже
+    # реальный сценарий (баг, storage-ошибка) — раньше оставляло message_event
+    # без ack навсегда (спиннер в клиенте VK висит бесконечно).
+    bot, api, _, _ = world
+    await bot.router.route(raw_message_new("/start"), api)
+    intent = intent_of(api)
+    payload = json.loads(encode_payload(intent, "go", None))
+
+    view = bot.labeler.views()["vkd_dialog"]
+    orig_validate = view._validate
+
+    async def boom(parsed, stack):
+        raise RuntimeError("boom before dispatch")
+
+    view._validate = boom
+    try:
+        # bot.router.route гасит исключение своим error_handler (логирует),
+        # но перед этим handle_event обязан ack'нуть latch.
+        await bot.router.route(raw_message_event(payload), api)
+    finally:
+        view._validate = orig_validate
+
+    answers = api.sent("messages.sendMessageEventAnswer")
+    assert len(answers) == 1  # ack ушёл несмотря на исключение до _dispatch
+
+
 async def test_unknown_state_gets_single_ack_and_recovers(fake_api):
     # Регрессия: персистентный контекст может пережить деплой, в котором
     # состояние переименовали/удалили — _validate()/_load_top_or_recover()
