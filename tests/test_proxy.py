@@ -1,6 +1,6 @@
 import pytest
 
-from vkbottle_dialog.api.entities import make_stack_key
+from vkbottle_dialog.api.entities import KeyboardKind, make_stack_key
 from vkbottle_dialog.context.memory import MemoryStorage
 from vkbottle_dialog.context.proxy import StorageProxy
 from vkbottle_dialog.exceptions import UnknownIntent
@@ -66,3 +66,29 @@ async def test_repair_drops_dead_intents(proxy):
     stack2 = await proxy.load_stack(KEY)
     await proxy.repair(stack2)
     assert stack2.intents == [c1.intent_id]
+
+
+async def test_roundtrip_last_media_key(proxy):
+    stack = await proxy.load_stack(KEY)
+    stack.last_cmid = 42
+    stack.last_media_key = "photo|a.png"
+    await proxy.save(stack)
+
+    stack2 = await proxy.load_stack(KEY)
+    assert stack2.last_media_key == "photo|a.png"
+
+
+async def test_load_stack_without_last_media_key(proxy):
+    raw = {
+        "intents": [],
+        "last_cmid": 42,
+        "last_message_sent_at": None,
+        "last_keyboard_kind": KeyboardKind.NONE.value,
+        "last_render_hash": None,
+        "last_text": None,
+        "inline_supported": None,
+    }
+    await proxy._storage.set(KEY, raw)
+
+    stack = await proxy.load_stack(KEY)
+    assert stack.last_media_key is None

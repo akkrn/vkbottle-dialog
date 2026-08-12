@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from ..exceptions import DialogStackOverflow
+from ..exceptions import DialogConfigError, DialogStackOverflow
 from ..fsm import State
 from ..limits import STACK_LIMIT
 
@@ -84,6 +84,7 @@ class Stack:
     last_render_hash: str | None = None
     last_text: str | None = None
     inline_supported: bool | None = None
+    last_media_key: str | None = None
 
     def push(self, state: State, start_data: Any) -> Context:
         if len(self.intents) >= STACK_LIMIT:
@@ -109,6 +110,7 @@ class Stack:
         self.last_keyboard_kind = KeyboardKind.NONE
         self.last_render_hash = None
         self.last_text = None
+        self.last_media_key = None
 
 
 @dataclass
@@ -130,16 +132,34 @@ class EventContext:
 
 
 @dataclass
+class MediaAttachment:
+    type: str = "photo"
+    path: str | None = None
+    url: str | None = None
+    attachment: str | None = None
+    title: str | None = None
+
+    def __post_init__(self) -> None:
+        sources = [s for s in (self.path, self.url, self.attachment) if s]
+        if len(sources) != 1:
+            raise DialogConfigError("MediaAttachment: ровно одно из path/url/attachment")
+
+    def source_key(self) -> str:
+        return f"{self.type}|{self.path or self.url or self.attachment}"
+
+
+@dataclass
 class NewMessage:
     peer_id: int
     text: str
     keyboard: str | None
     keyboard_kind: KeyboardKind
-    attachments: list[str]
+    media: MediaAttachment | None = None
     disable_mentions: bool = True
     dont_parse_links: bool = False
     show_mode: ShowMode = ShowMode.AUTO
 
     def render_hash(self) -> str:
-        raw = f"{self.text}\x00{self.keyboard or ''}\x00{','.join(self.attachments)}"
+        media_key = self.media.source_key() if self.media else ""
+        raw = f"{self.text}\x00{self.keyboard or ''}\x00{media_key}"
         return hashlib.sha256(raw.encode()).hexdigest()[:16]

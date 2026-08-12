@@ -91,8 +91,6 @@ class MessageManager:
         }
         if new.keyboard is not None:
             params["keyboard"] = new.keyboard
-        if new.attachments:
-            params["attachment"] = ",".join(new.attachments)
         response = await self._api.request("messages.send", params)
         item = response["response"][0]
         stack.last_cmid = item["conversation_message_id"]

@@ -13,9 +13,7 @@ NOW = 1_000_000.0
 def new_msg(
     text="t", kb='{"inline":true,"buttons":[]}', kind=KeyboardKind.INLINE, mode=ShowMode.AUTO
 ):
-    return NewMessage(
-        peer_id=5, text=text, keyboard=kb, keyboard_kind=kind, attachments=[], show_mode=mode
-    )
+    return NewMessage(peer_id=5, text=text, keyboard=kb, keyboard_kind=kind, show_mode=mode)
 
 
 def fresh_stack(**kw):

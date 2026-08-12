@@ -65,7 +65,6 @@ class Window:
             text=text or " ",
             keyboard=rendered.json,
             keyboard_kind=rendered.kind,
-            attachments=[],
             disable_mentions=self._disable_mentions,
             dont_parse_links=self._dont_parse_links,
         )

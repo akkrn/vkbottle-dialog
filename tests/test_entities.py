@@ -69,16 +69,12 @@ def test_event_context_chat_detection():
 
 
 def test_render_hash_changes():
-    m1 = NewMessage(
-        peer_id=1, text="a", keyboard=None, keyboard_kind=KeyboardKind.NONE, attachments=[]
-    )
-    m2 = NewMessage(
-        peer_id=1, text="b", keyboard=None, keyboard_kind=KeyboardKind.NONE, attachments=[]
-    )
+    m1 = NewMessage(peer_id=1, text="a", keyboard=None, keyboard_kind=KeyboardKind.NONE)
+    m2 = NewMessage(peer_id=1, text="b", keyboard=None, keyboard_kind=KeyboardKind.NONE)
     assert m1.render_hash() != m2.render_hash()
     assert (
         m1.render_hash()
         == NewMessage(
-            peer_id=9, text="a", keyboard=None, keyboard_kind=KeyboardKind.NONE, attachments=[]
+            peer_id=9, text="a", keyboard=None, keyboard_kind=KeyboardKind.NONE
         ).render_hash()
     )
