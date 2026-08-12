@@ -133,3 +133,30 @@ async def test_broken_storage_degrades_but_upload_succeeds(tmp_path):
     result = await r.resolve(media, peer_id=1)
     assert result == "photo1_1_key"
     assert len(uploader.calls) == 1
+
+
+async def test_corrupt_non_dict_storage_doc_degrades_but_upload_succeeds(tmp_path):
+    class CorruptStorage:
+        async def get(self, key):
+            return "not-a-dict"  # повреждённые данные вместо {"attachment": ...}
+
+        async def set(self, key, data): ...
+
+        async def delete(self, key): ...
+
+        async def touch(self, *keys): ...
+
+    uploader = FakeUploader(None)
+    r = MediaResolver(
+        api=None,
+        storage=CorruptStorage(),
+        photo_uploader_factory=lambda api: uploader,
+        doc_uploader_factory=lambda api: uploader,
+    )
+    f = tmp_path / "a.png"
+    f.write_bytes(b"x")
+    media = MediaAttachment(path=str(f))
+
+    result = await r.resolve(media, peer_id=1)
+    assert result == "photo1_1_key"
+    assert len(uploader.calls) == 1
