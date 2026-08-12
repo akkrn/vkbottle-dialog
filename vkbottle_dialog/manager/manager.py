@@ -328,6 +328,17 @@ class ManagerImpl:
             await self._answer_latch.answer(snackbar=snackbar, open_link=open_link)
 
     def bg(self, peer_id: int | None = None, user_id: int | None = None) -> Any:
+        """Возвращает BgManager для отправки другому peer/пользователю (или
+        для использования вне обработки события — крон, вебхуки).
+
+        НЕ ПОДДЕРЖИВАЕТСЯ (v0.1): вызов bg() БЕЗ peer_id/user_id (то есть на
+        ТЕКУЩИЙ стек) изнутри хендлера того же события, что уже держит этот
+        manager. bg() коммитит под собственным lock'ом сразу, а внешний
+        manager закоммитит свою (более раннюю) версию контекста уже после
+        возврата из хендлера — итоговый commit() перезапишет изменения
+        bg(), потерянное обновление. Внутри хендлера для ТЕКУЩЕГО стека
+        используйте методы manager напрямую (update/switch_to/...), bg() —
+        для других peer/пользователей."""
         from .bg_manager import BgManager  # цикл: bg_manager импортирует ManagerImpl
 
         ev = self._event_ctx
