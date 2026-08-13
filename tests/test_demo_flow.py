@@ -68,11 +68,14 @@ def render_count(api) -> int:
 
 def rendered_keyboard(api) -> dict:
     """Клавиатура последнего отрендеренного окна (send или edit — что позже
-    по факту вызова, а не по типу метода)."""
+    по факту вызова, а не по типу метода). Правка неизменной нижней (TEXT)
+    клавиатуры не передаёт "keyboard" в messages.edit (см. message_manager.py
+    §6) — в этом случае клавиатура не изменилась, поэтому берём последнюю
+    фактически переданную дальше в истории вызовов."""
     for method, params in reversed(api.calls):
-        if method in ("messages.send", "messages.edit"):
+        if method in ("messages.send", "messages.edit") and "keyboard" in params:
             return json.loads(params["keyboard"])
-    raise AssertionError("окно ни разу не отрендерено")
+    raise AssertionError("окно ни разу не отрендерено с клавиатурой")
 
 
 def button_payloads(kb: dict) -> dict[str, dict]:
@@ -156,6 +159,21 @@ async def walk_calendar_zoom(bot, api, days_kb: dict) -> dict:
     return await click(bot, api, month_payload)
 
 
+async def walk_text_kb(bot, api, main_kb: dict) -> dict:
+    """text_kb использует TextKeyboardFactory(button_type="callback") —
+    клик по нижней клавиатуре шлёт message_event, а не обычное сообщение,
+    и сама клавиатура при этом не меняется (тот же набор кнопок), поэтому
+    AUTO должен отредактировать окно на месте (messages.edit), а не
+    удалить+переслать заново — регрессия-guard на баг, где TEXT-клавиатура
+    пересылала окно на каждый тап (см. message_manager.py §6)."""
+    deletes_before = len(api.sent("messages.delete"))
+    edits_before = len(api.sent("messages.edit"))
+    kb = await click(bot, api, button_payloads(main_kb)["tk_pizza"])
+    assert len(api.sent("messages.delete")) == deletes_before  # без удаления
+    assert len(api.sent("messages.edit")) == edits_before + 1  # редактирование на месте
+    return kb
+
+
 async def walk_switch_wizard(bot, api, main_kb: dict) -> dict:
     """«Мастер» (`to_switch`) не подменю: его 3 окна (MAIN → INPUT → LAST)
     идут по порядку состояний диалога через `Next()` (виджет с id по
@@ -204,6 +222,9 @@ async def test_walk_every_demo_section_and_subsection(demo_bot, fake_api):
                 await click(bot, api, back_payload)
         elif section_id == "to_switch":
             main_menu_payload = await walk_switch_wizard(bot, api, section_kb)
+        elif section_id == "to_text_kb":
+            section_kb = await walk_text_kb(bot, api, section_kb)
+            main_menu_payload = button_payloads(section_kb)["__main__"]
         else:
             main_menu_payload = button_payloads(section_kb)["__main__"]
 
