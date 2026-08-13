@@ -129,6 +129,33 @@ async def click(bot, api, payload: dict) -> dict:
     return kb
 
 
+async def walk_calendar_zoom(bot, api, days_kb: dict) -> dict:
+    """Обходит зум по всем scope календаря DEFAULT (DAYS → MONTHS → страница
+    MONTHS через «⋯» → YEARS → MONTHS конкретного года → DAYS конкретного
+    месяца), проверяя бюджет клавиатуры на каждом шаге через `click()` —
+    регрессия-guard на баг, где MONTHS/YEARS scope превышали лимит в 10
+    кнопок и падали с DialogConfigError только при реальном зуме."""
+    payloads = button_payloads(days_kb)
+    zoom_months_payload = next(p for cd, p in payloads.items() if cd.endswith(":z:months"))
+    months_kb = await click(bot, api, zoom_months_payload)
+
+    months_payloads = button_payloads(months_kb)
+    more_payload = next(p for cd, p in months_payloads.items() if ":p:" in cd)
+    months_kb2 = await click(bot, api, more_payload)
+
+    months_payloads2 = button_payloads(months_kb2)
+    years_payload = next(p for cd, p in months_payloads2.items() if cd.endswith(":z:years"))
+    years_kb = await click(bot, api, years_payload)
+
+    years_payloads = button_payloads(years_kb)
+    year_payload = next(p for cd, p in years_payloads.items() if ":z:months:" in cd)
+    year_months_kb = await click(bot, api, year_payload)
+
+    year_months_payloads = button_payloads(year_months_kb)
+    month_payload = next(p for cd, p in year_months_payloads.items() if ":z:days:" in cd)
+    return await click(bot, api, month_payload)
+
+
 async def walk_switch_wizard(bot, api, main_kb: dict) -> dict:
     """«Мастер» (`to_switch`) не подменю: его 3 окна (MAIN → INPUT → LAST)
     идут по порядку состояний диалога через `Next()` (виджет с id по
@@ -163,12 +190,16 @@ async def test_walk_every_demo_section_and_subsection(demo_bot, fake_api):
         if section_id in SUBMENU_SECTIONS:
             sub_payloads = button_payloads(section_kb)
             main_menu_payload = sub_payloads.pop("__main__")
-            for sub_payload in sub_payloads.values():
+            for sub_id, sub_payload in sub_payloads.items():
                 # каждый SwitchTo подсекции валиден только пока текущее
                 # состояние — MAIN секции (process_callback смотрит окно
                 # ТЕКУЩЕГО состояния), поэтому после подсекции возвращаемся
                 # «◀ Назад» перед кликом следующей.
                 sub_kb = await click(bot, api, sub_payload)
+                if section_id == "to_calendar" and sub_id == "to_default":
+                    # Calendar DEFAULT — единственная подсекция с зумом
+                    # (MONTHS/YEARS scope), где раньше падал бюджет клавиатуры.
+                    sub_kb = await walk_calendar_zoom(bot, api, sub_kb)
                 back_payload = button_payloads(sub_kb)["__back__"]
                 await click(bot, api, back_payload)
         elif section_id == "to_switch":
