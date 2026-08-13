@@ -30,6 +30,7 @@ class DialogConfig:
     global_getter: Any = None
     stale_snackbar: str = "Окно устарело, начните заново"
     media_resolver: Any = None
+    jinja_env: Any = None
 
 
 class ManagerImpl:
@@ -85,6 +86,14 @@ class ManagerImpl:
     def start_data(self) -> Any:
         return self.current_context().start_data
 
+    @property
+    def jinja_env(self) -> Any:
+        return self._config.jinja_env
+
+    @property
+    def config(self) -> DialogConfig:
+        return self._config
+
     def dialog(self) -> Any:
         return self._registry.dialog_for_group(self.current_context().state.group)
 
@@ -111,6 +120,8 @@ class ManagerImpl:
     def find(self, widget_id: str) -> Any:
         widget = self.dialog().find(widget_id)
         return widget.managed(self) if widget is not None else None
+
+    find_in_parent = find
 
     def find_scroll(self, widget_id: str) -> Any:
         return self.dialog().find_scroll(widget_id)
