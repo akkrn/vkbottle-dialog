@@ -8,6 +8,7 @@ from .calendar import (
     CalendarUserConfig,
     ManagedCalendar,
 )
+from .carousel import Carousel, ManagedCarousel
 from .counter import Counter, ManagedCounter
 from .group import Column, Group, Row
 from .list_group import ListGroup, ManagedListGroup
@@ -45,6 +46,7 @@ __all__ = [
     "CalendarScope",
     "CalendarUserConfig",
     "Cancel",
+    "Carousel",
     "Checkbox",
     "Column",
     "Counter",
@@ -55,6 +57,7 @@ __all__ = [
     "LastPage",
     "ListGroup",
     "ManagedCalendar",
+    "ManagedCarousel",
     "ManagedCheckbox",
     "ManagedCounter",
     "ManagedListGroup",
