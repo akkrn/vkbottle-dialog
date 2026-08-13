@@ -1,11 +1,18 @@
+import json
+
 from vkbottle_dialog.api.entities import (
+    CarouselElement,
+    CarouselSpec,
     KeyboardKind,
+    MediaAttachment,
     NewMessage,
     ShowMode,
     Stack,
     make_stack_key,
 )
+from vkbottle_dialog.manager.media_resolver import MediaResolver
 from vkbottle_dialog.manager.message_manager import MessageManager
+from vkbottle_dialog.widgets.kbd.base import VKButton
 
 NOW = 1_000_000.0
 
@@ -20,6 +27,42 @@ def fresh_stack(**kw):
     defaults = dict(key=make_stack_key(1, 5, 5))
     defaults.update(kw)
     return Stack(**defaults)
+
+
+def carousel_msg(mode=ShowMode.AUTO, photo=None, n=2):
+    elements = [
+        CarouselElement(
+            title=f"Товар {i}",
+            description="описание",
+            photo=photo,
+            buttons=[VKButton(action="callback", label="Купить", callback_data=f"pay:{i}")],
+        )
+        for i in range(1, n + 1)
+    ]
+    return NewMessage(
+        peer_id=5,
+        text="Каталог",
+        keyboard=None,
+        keyboard_kind=KeyboardKind.NONE,
+        carousel=CarouselSpec(elements=elements),
+        show_mode=mode,
+    )
+
+
+class OkUploader:
+    def __init__(self, api):
+        self.calls = 0
+
+    async def upload(self, file_source, peer_id=None, **kw):
+        self.calls += 1
+        return "photo1_1_key"
+
+
+def make_resolver():
+    up = OkUploader(None)
+    return MediaResolver(
+        api=None, photo_uploader_factory=lambda a: up, doc_uploader_factory=lambda a: up
+    ), up
 
 
 async def test_first_send(fake_api):
@@ -216,3 +259,78 @@ async def test_remove_kbd(fake_api):
     edits = fake_api.sent("messages.edit")
     assert len(edits) == 1 and "keyboard" not in edits[0]
     assert stack.last_cmid is None
+
+
+async def test_first_send_with_carousel_includes_template(fake_api):
+    mm = MessageManager(fake_api)
+    stack = fresh_stack()
+    await mm.show_message(carousel_msg(), stack, trigger="message_new", now=NOW)
+    sent = fake_api.sent("messages.send")[0]
+    assert sent["message"] == "Каталог"
+    template = json.loads(sent["template"])
+    assert template["type"] == "carousel"
+    assert len(template["elements"]) == 2
+    el = template["elements"][0]
+    assert el["title"] == "Товар 1" and el["description"] == "описание"
+    assert el["buttons"][0]["action"]["payload"] == "pay:1"
+    assert "photo_id" not in el
+    assert stack.last_had_carousel is True
+
+
+async def test_carousel_photo_resolved_to_photo_id(fake_api):
+    resolver, up = make_resolver()
+    mm = MessageManager(fake_api, media_resolver=resolver)
+    stack = fresh_stack()
+    msg = carousel_msg(photo=MediaAttachment(attachment="photo9_9_zzz"), n=1)
+    await mm.show_message(msg, stack, trigger="message_new", now=NOW)
+    sent = fake_api.sent("messages.send")[0]
+    template = json.loads(sent["template"])
+    assert template["elements"][0]["photo_id"] == "9_9"
+    assert up.calls == 0  # attachment уже готов — аплоуд не нужен
+
+
+async def test_carousel_to_inline_transition_deletes_and_sends(fake_api):
+    mm = MessageManager(fake_api)
+    stack = fresh_stack(
+        last_cmid=50,
+        last_message_sent_at=NOW - 100,
+        last_keyboard_kind=KeyboardKind.NONE,
+        last_had_carousel=True,
+    )
+    await mm.show_message(new_msg(), stack, trigger="message_event", now=NOW)
+    assert len(fake_api.sent("messages.delete")) == 1
+    assert len(fake_api.sent("messages.send")) == 1
+    assert stack.last_had_carousel is False
+
+
+async def test_inline_to_carousel_transition_deletes_and_sends(fake_api):
+    mm = MessageManager(fake_api)
+    stack = fresh_stack(
+        last_cmid=50,
+        last_message_sent_at=NOW - 100,
+        last_keyboard_kind=KeyboardKind.INLINE,
+        last_had_carousel=False,
+    )
+    await mm.show_message(carousel_msg(), stack, trigger="message_event", now=NOW)
+    assert len(fake_api.sent("messages.delete")) == 1
+    assert len(fake_api.sent("messages.send")) == 1
+    assert stack.last_had_carousel is True
+
+
+async def test_carousel_unchanged_edits_with_template(fake_api):
+    mm = MessageManager(fake_api)
+    msg = carousel_msg()
+    stack = fresh_stack(
+        last_cmid=50,
+        last_message_sent_at=NOW - 100,
+        last_keyboard_kind=KeyboardKind.NONE,
+        last_had_carousel=True,
+        last_render_hash="old",
+    )
+    await mm.show_message(msg, stack, trigger="message_event", now=NOW)
+    edits = fake_api.sent("messages.edit")
+    assert len(edits) == 1
+    template = json.loads(edits[0]["template"])
+    assert template["type"] == "carousel"
+    assert fake_api.sent("messages.delete") == []
+    assert stack.last_had_carousel is True

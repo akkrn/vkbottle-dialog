@@ -204,13 +204,19 @@ class NewMessage:
     show_mode: ShowMode = ShowMode.AUTO
     carousel: CarouselSpec | None = None
 
-    def render_hash(self, media_override: str | None = None) -> str:
+    def render_hash(
+        self, media_override: str | None = None, carousel_override: str | None = None
+    ) -> str:
         media_key = (
             media_override
             if media_override is not None
             else (self.media.source_key() if self.media else "")
         )
-        carousel_key = self.carousel.descriptor() if self.carousel else ""
+        carousel_key = (
+            carousel_override
+            if carousel_override is not None
+            else (self.carousel.descriptor() if self.carousel else "")
+        )
         raw = f"{self.text}\x00{self.keyboard or ''}\x00{media_key}\x00{carousel_key}"
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
 

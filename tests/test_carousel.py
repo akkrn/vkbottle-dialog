@@ -1,10 +1,16 @@
+import json
+
 import pytest
 
+from vkbottle_dialog.api.entities import EventContext
 from vkbottle_dialog.exceptions import DialogConfigError
 from vkbottle_dialog.fsm import State, StatesGroup
+from vkbottle_dialog.payload import decode_payload
 from vkbottle_dialog.widgets.kbd import Button, Carousel
+from vkbottle_dialog.widgets.markup import InlineKeyboardFactory, TextKeyboardFactory
 from vkbottle_dialog.widgets.media import StaticMedia
 from vkbottle_dialog.widgets.text import Const, Format
+from vkbottle_dialog.window import Window
 
 
 class SG(StatesGroup):
@@ -167,3 +173,55 @@ def test_open_link_without_url_raises_config_error():
             buttons=[],
             element_action="open_link",
         )
+
+
+def ev():
+    return EventContext(group_id=1, peer_id=5, owner_id=5, user_id=5, kind="message_new", raw=None)
+
+
+async def test_window_render_puts_carousel_in_new_message(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    m._data = {"items": ITEMS}
+    win = Window(make_carousel(), state=SG.a)
+
+    msg = await win.render(
+        m, ev(), m.current_context().intent_id, "s3cr3t", InlineKeyboardFactory()
+    )
+
+    assert msg.text == " "  # окно без текста -> обязательный пробел
+    assert msg.carousel is not None
+    assert len(msg.carousel.elements) == 3
+    payload = msg.carousel.elements[1].buttons[0].callback_data
+    parsed = decode_payload(payload, "s3cr3t")
+    assert parsed is not None
+    assert parsed.callback_data == "car:2:buy"
+    # render_keyboard остаётся пустым -> обычная inline-клавиатура не шлётся
+    assert msg.keyboard is None
+
+
+async def test_window_forbids_carousel_with_other_kbd_without_text_factory(fake_manager_factory):
+    with pytest.raises(DialogConfigError):
+        Window(make_carousel(), Button(Const("Далее"), id="next"), state=SG.a)
+
+
+async def test_window_allows_carousel_with_nav_under_text_factory(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    m._data = {"items": ITEMS}
+    win = Window(
+        make_carousel(),
+        Button(Const("Далее"), id="next"),
+        state=SG.a,
+        markup_factory=TextKeyboardFactory(button_type="callback"),
+    )
+
+    msg = await win.render(m, ev(), m.current_context().intent_id, None, InlineKeyboardFactory())
+
+    assert msg.carousel is not None
+    assert msg.keyboard is not None
+    doc = json.loads(msg.keyboard)
+    assert doc["inline"] is False  # нижняя (TEXT) навигация, не inline
+
+
+def test_window_forbids_more_than_one_carousel():
+    with pytest.raises(DialogConfigError):
+        Window(make_carousel(), make_carousel(), state=SG.a)
