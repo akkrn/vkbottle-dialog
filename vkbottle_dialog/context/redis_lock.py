@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import random
 import secrets
 from collections.abc import AsyncIterator
@@ -9,6 +10,8 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from .locks import LockRegistry
+
+logger = logging.getLogger("vkbottle_dialog")
 
 # продлеваем TTL только если ключ всё ещё содержит НАШ токен
 _RENEW_SCRIPT = (
@@ -69,7 +72,12 @@ class RedisLockRegistry:
                 yield
             finally:
                 heartbeat.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
+                # heartbeat может завершиться не только отменой, но и упасть с
+                # транзиентной ошибкой redis (ConnectionError/TimeoutError) —
+                # release-скрипт обязан выполниться в любом случае, иначе lock
+                # утекает (висит до истечения ttl) и оригинальное исключение
+                # критической секции маскируется исключением из heartbeat
+                with contextlib.suppress(BaseException):
                     await heartbeat
                 await self._redis.eval(_RELEASE_SCRIPT, 1, rkey, token)
 
@@ -85,9 +93,18 @@ class RedisLockRegistry:
     async def _heartbeat(self, rkey: str, token: str) -> None:
         px = int(self._ttl * 1000)
         interval = self._ttl / 3
-        while True:
-            await asyncio.sleep(interval)
-            await self._redis.eval(_RENEW_SCRIPT, 1, rkey, token, px)
+        try:
+            while True:
+                await asyncio.sleep(interval)
+                try:
+                    await self._redis.eval(_RENEW_SCRIPT, 1, rkey, token, px)
+                except Exception as e:
+                    # транзиентный сбой продления не должен насовсем убивать
+                    # heartbeat на весь остаток удержания lock'а — пробуем снова
+                    # на следующей итерации
+                    logger.warning("redis lock heartbeat renew failed for %s: %r", rkey, e)
+        except asyncio.CancelledError:
+            raise
 
 
 __all__ = ["RedisLockRegistry"]
