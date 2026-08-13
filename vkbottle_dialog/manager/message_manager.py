@@ -109,10 +109,12 @@ class MessageManager:
         """(template JSON | None, failed) — собирает VK carousel-template из
         CarouselSpec: photo резолвится через тот же MediaResolver, что и
         обычное медиа окна (attachment -> photo_id хелпером
-        attachment_to_photo_id). failed=True если хотя бы у одного элемента
-        с photo не удалось получить attachment (элемент уйдёт без photo_id —
-        деградация как у обычного медиа; насколько это ломает VK-требование
-        структурной униформности карусели — smoke §7)."""
+        attachment_to_photo_id). failed=True только если попытка резолва
+        ДЕЙСТВИТЕЛЬНО провалилась (resolve() вернул None) — нет резолвера
+        это конфигурационный выбор, а не сбой (симметрично _resolve_media);
+        элемент уйдёт без photo_id — деградация как у обычного медиа,
+        насколько это ломает VK-требование структурной униформности
+        карусели — smoke §7."""
         spec: CarouselSpec | None = new.carousel
         if spec is None:
             return None, False
@@ -120,14 +122,10 @@ class MessageManager:
         elements: list[dict] = []
         for element in spec.elements:
             doc: dict = {"title": element.title, "description": element.description}
-            if element.photo is not None:
-                photo_id = None
-                if self._media_resolver is not None:
-                    attachment = await self._media_resolver.resolve(element.photo, new.peer_id)
-                    if attachment is not None:
-                        photo_id = attachment_to_photo_id(attachment)
-                if photo_id is not None:
-                    doc["photo_id"] = photo_id
+            if element.photo is not None and self._media_resolver is not None:
+                attachment = await self._media_resolver.resolve(element.photo, new.peer_id)
+                if attachment is not None:
+                    doc["photo_id"] = attachment_to_photo_id(attachment)
                 else:
                     failed = True
             if element.buttons:

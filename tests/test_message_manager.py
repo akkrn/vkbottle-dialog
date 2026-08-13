@@ -334,3 +334,40 @@ async def test_carousel_unchanged_edits_with_template(fake_api):
     assert template["type"] == "carousel"
     assert fake_api.sent("messages.delete") == []
     assert stack.last_had_carousel is True
+
+
+async def test_no_resolver_photo_carousel_not_marked_failed(fake_api):
+    # media_resolver=None — конфигурационный выбор, а не сбой аплоуда:
+    # photo_id просто не проставляется, но render_hash НЕ должен получать
+    # "carousel:failed"-маркер (иначе идентичный повторный рендер никогда
+    # не хэш-скипнется и будет вечно уходить в edit).
+    mm = MessageManager(fake_api)  # без media_resolver
+    msg = carousel_msg(photo=MediaAttachment(path="a.png"), n=1)
+    stack = fresh_stack()
+    await mm.show_message(msg, stack, trigger="message_new", now=NOW)
+    sent = fake_api.sent("messages.send")[0]
+    template = json.loads(sent["template"])
+    assert "photo_id" not in template["elements"][0]
+    assert stack.last_render_hash == msg.render_hash()  # без "carousel:failed"
+
+    # повторный идентичный рендер — hash-скип, без нового вызова API
+    fake_api.calls.clear()
+    stack.last_message_sent_at = NOW
+    await mm.show_message(msg, stack, trigger="message_event", now=NOW)
+    assert fake_api.calls == []
+
+
+async def test_explicit_edit_carousel_to_inline_deletes_and_sends(fake_api):
+    mm = MessageManager(fake_api)
+    stack = fresh_stack(
+        last_cmid=50,
+        last_message_sent_at=NOW - 100,
+        last_keyboard_kind=KeyboardKind.NONE,
+        last_had_carousel=True,
+    )
+    msg = new_msg(mode=ShowMode.EDIT)  # carousel=None, явный EDIT в обход AUTO
+    await mm.show_message(msg, stack, trigger="message_event", now=NOW)
+    assert len(fake_api.sent("messages.delete")) == 1
+    assert len(fake_api.sent("messages.send")) == 1
+    assert fake_api.sent("messages.edit") == []
+    assert stack.last_had_carousel is False
