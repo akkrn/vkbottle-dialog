@@ -118,3 +118,31 @@ async def test_load_stack_without_last_kb_hash(proxy):
 
     stack = await proxy.load_stack(KEY)
     assert stack.last_kb_hash is None
+
+
+async def test_roundtrip_last_had_carousel(proxy):
+    stack = await proxy.load_stack(KEY)
+    stack.last_cmid = 42
+    stack.last_had_carousel = True
+    await proxy.save(stack)
+
+    stack2 = await proxy.load_stack(KEY)
+    assert stack2.last_had_carousel is True
+
+
+async def test_load_stack_without_last_had_carousel_defaults_false(proxy):
+    # Стек, сохранённый до апгрейда на carousel — миграционная заметка
+    # спеки §9: без поля стоит считать, что карусели не было.
+    raw = {
+        "intents": [],
+        "last_cmid": 42,
+        "last_message_sent_at": None,
+        "last_keyboard_kind": KeyboardKind.NONE.value,
+        "last_render_hash": None,
+        "last_text": None,
+        "inline_supported": None,
+    }
+    await proxy._storage.set(KEY, raw)
+
+    stack = await proxy.load_stack(KEY)
+    assert stack.last_had_carousel is False
