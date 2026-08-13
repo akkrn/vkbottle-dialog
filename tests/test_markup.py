@@ -61,3 +61,24 @@ def test_text_factory():
     assert doc["buttons"][0][0]["action"]["type"] == "text"
     empty = TextKeyboardFactory().render([], "IntentIdAb1", None)
     assert empty.json == EMPTY_KEYBOARD_JSON
+
+
+def test_text_factory_callback_button_type():
+    raw = [
+        [cb("Да", "yes")],
+        [VKButton(action="open_link", label="Site", callback_data=None, link="https://e.com")],
+    ]
+    r = TextKeyboardFactory(button_type="callback").render(raw, "IntentIdAb1", None)
+    doc = json.loads(r.json)
+    assert doc["inline"] is False and r.kind is KeyboardKind.TEXT
+    btn = doc["buttons"][0][0]
+    assert btn["action"]["type"] == "callback"
+    payload = json.loads(btn["action"]["payload"])
+    assert payload["__vkd__"] == "IntentIdAb1|yes"
+    link_btn = doc["buttons"][1][0]
+    assert link_btn["action"]["type"] == "open_link"
+
+
+def test_text_factory_invalid_button_type():
+    with pytest.raises(DialogConfigError):
+        TextKeyboardFactory(button_type="inline")

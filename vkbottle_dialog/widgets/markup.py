@@ -77,14 +77,22 @@ class InlineKeyboardFactory:
 
 
 class TextKeyboardFactory:
-    def __init__(self, one_time: bool = False) -> None:
+    def __init__(self, one_time: bool = False, button_type: str = "text") -> None:
+        if button_type not in ("text", "callback"):
+            raise DialogConfigError(
+                f"TextKeyboardFactory: button_type должен быть 'text' или 'callback', "
+                f"получено {button_type!r}"
+            )
         self._one_time = one_time
+        self._button_type = button_type
 
     def render(self, raw: RawKeyboard, intent_id: str, secret: str | None) -> RenderedKeyboard:
         if not raw:
             return RenderedKeyboard(json=EMPTY_KEYBOARD_JSON, kind=KeyboardKind.TEXT)
         _validate(raw, TEXT_KB_MAX_BUTTONS, TEXT_KB_MAX_ROWS)
-        buttons = [[_button_doc(b, "text", intent_id, secret) for b in row] for row in raw]
+        buttons = [
+            [_button_doc(b, self._button_type, intent_id, secret) for b in row] for row in raw
+        ]
         doc = {"one_time": self._one_time, "inline": False, "buttons": buttons}
         return RenderedKeyboard(
             json=json.dumps(doc, ensure_ascii=False, separators=(",", ":")),
