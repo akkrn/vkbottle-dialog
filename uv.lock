@@ -1448,6 +1448,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+jinja = [
+    { name = "jinja2" },
+]
 redis = [
     { name = "redis" },
 ]
@@ -1464,11 +1467,12 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "jinja2", marker = "extra == 'jinja'", specifier = ">=3" },
     { name = "magic-filter", specifier = ">=1.0" },
     { name = "redis", marker = "extra == 'redis'", specifier = ">=5.0" },
     { name = "vkbottle", specifier = ">=4.10" },
 ]
-provides-extras = ["redis"]
+provides-extras = ["redis", "jinja"]
 
 [package.metadata.requires-dev]
 dev = [

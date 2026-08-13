@@ -20,6 +20,7 @@ dependencies = ["vkbottle>=4.10", "magic-filter>=1.0"]
 
 [project.optional-dependencies]
 redis = ["redis>=5.0"]
+jinja = ["jinja2>=3"]
 
 [project.urls]
 Homepage = "https://github.com/akkrn/vkbottle-dialog"
