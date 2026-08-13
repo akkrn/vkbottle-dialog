@@ -3,7 +3,7 @@ from vkbottle_dialog import limits
 
 
 def test_version():
-    assert vkbottle_dialog.__version__ == "0.2.0"
+    assert vkbottle_dialog.__version__ == "0.2.1"
 
 
 def test_limits():

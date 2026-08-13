@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.1 (unreleased)
+## 0.2.1 — 2026-08-13
 
 - **`TextKeyboardFactory(button_type="callback")`**: кнопки нижней клавиатуры теперь можно
   рендерить как callback (`message_event`), а не только как text (`message_new`) — клик не постит

@@ -1,6 +1,6 @@
 [project]
 name = "vkbottle-dialog"
-version = "0.2.0"
+version = "0.2.1"
 description = "Declarative dialogs for VK bots on top of vkbottle (aiogram-dialog port)"
 readme = "README.md"
 license = "Apache-2.0"
