@@ -1,13 +1,15 @@
 # Changelog
 
-## 0.3.0 (unreleased)
+## 0.3.0 — 2026-08-13
 
 - **`ListGroup`**: выбор из списка построчно через виджеты; `SubManager` для per-row состояния.
 - **`DynamicMedia`**: медиа из геттера данных (прямой селектор, MagicFilter или callable).
 - **`Jinja`** (extra `[jinja]`): рендер текста через Jinja2-шаблоны.
 - **`Carousel`**: VK-карусель через `template`-систему.
 
-*Примечание: инфра (AccessSettings, Redis-lock) и демо — в разработке (Plan B).*
+- **`AccessSettings`**: подключаемый `access_validator=` в `setup_dialogs` (тихий отказ, кастомные валидаторы доступа); без shared-стеков `user_ids` в основном не наблюдаем (см. README).
+- **Мульти-инстанс**: `RedisLockRegistry` — распределённый lock с TTL и фоновым heartbeat, `setup_dialogs(locks=...)`.
+- Демо-бот: секции ListGroup+Jinja, Carousel, DynamicMedia, кастомный валидатор доступа.
 
 ## 0.2.2 — 2026-08-13
 
