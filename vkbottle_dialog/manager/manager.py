@@ -359,28 +359,12 @@ class ManagerImpl:
             factory,
         )
         new_message.show_mode = self.show_mode
-        mode = self._message_manager.decide_mode(
-            new_message, self._stack, trigger=self._event_ctx.kind, now=self._config.now()
+        await self._message_manager.show_message(
+            new_message,
+            self._stack,
+            trigger=self._event_ctx.kind,
+            now=self._config.now(),
         )
-        if mode is not None:
-            # Медиа резолвится (аплоуд — потенциально долгая сетевая операция)
-            # ВНЕ stack-lock'а (спека §6): критично для будущего
-            # распределённого lock'а (Redis TTL) — долгая загрузка под ним не
-            # должна рисковать пережить TTL и вызвать split-brain. Стек (не
-            # dirty-контексты — те коммитит финальный manager.commit(), а
-            # ранний коммит контекстов рискует затереть параллельный bg()
-            # на тот же стек, спека §7) сохраняем ДО отпускания lock'а, чтобы
-            # не потерять уже применённые в памяти мутации (Stack.push и
-            # т.п.), затем перечитываем его заново ПОСЛЕ возврата lock'а — за
-            # время отпускания конкурентный обработчик того же стека мог
-            # успеть закоммитить более свежую версию.
-            await self._proxy.save(self._stack)
-            async with self._locks.suspend(self._event_ctx.stack_key):
-                resolved = await self._message_manager.resolve_media(new_message)
-            self._stack = await self._proxy.load_stack(self._event_ctx.stack_key)
-            await self._message_manager.apply(
-                mode, new_message, resolved, self._stack, now=self._config.now()
-            )
         self.show_mode = ShowMode.AUTO
 
     async def answer(self, snackbar: str | None = None, open_link: str | None = None) -> None:

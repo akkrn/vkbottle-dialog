@@ -119,8 +119,7 @@ async def make_manager(deps, event=None):
 async def test_start_renders_and_persists(fake_api):
     _, _, deps = build_world(fake_api)
     m = await make_manager(deps)
-    async with deps["locks"].acquire(ev().stack_key):
-        await m.start(MainSG.a)
+    await m.start(MainSG.a)
     await m.commit()
     assert len(fake_api.sent("messages.send")) == 1
     m2 = await make_manager(deps)
@@ -130,38 +129,35 @@ async def test_start_renders_and_persists(fake_api):
 async def test_switch_navigation(fake_api):
     _, _, deps = build_world(fake_api)
     m = await make_manager(deps)
-    async with deps["locks"].acquire(ev().stack_key):
-        await m.start(MainSG.a)
-        await m.next()
-        assert m.current_context().state is MainSG.b
+    await m.start(MainSG.a)
+    await m.next()
+    assert m.current_context().state is MainSG.b
+    await m.back()
+    assert m.current_context().state is MainSG.a
+    with pytest.raises(DialogConfigError):
         await m.back()
-        assert m.current_context().state is MainSG.a
-        with pytest.raises(DialogConfigError):
-            await m.back()
-        with pytest.raises(DialogConfigError):
-            await m.switch_to(SubSG.x)  # чужая группа
+    with pytest.raises(DialogConfigError):
+        await m.switch_to(SubSG.x)  # чужая группа
 
 
 async def test_subdialog_result_flow(fake_api):
     results.clear()
     _, _, deps = build_world(fake_api)
     m = await make_manager(deps)
-    async with deps["locks"].acquire(ev().stack_key):
-        await m.start(MainSG.a)
-        await m.start(SubSG.x, data={"q": 1})
-        assert m.current_context().state is SubSG.x
-        assert len(m.current_stack().intents) == 2
-        await m.done(result="ok")
-        assert m.current_context().state is MainSG.a
-        assert results == [({"q": 1}, "ok")]
+    await m.start(MainSG.a)
+    await m.start(SubSG.x, data={"q": 1})
+    assert m.current_context().state is SubSG.x
+    assert len(m.current_stack().intents) == 2
+    await m.done(result="ok")
+    assert m.current_context().state is MainSG.a
+    assert results == [({"q": 1}, "ok")]
 
 
 async def test_done_last_removes_kbd(fake_api):
     _, _, deps = build_world(fake_api)
     m = await make_manager(deps)
-    async with deps["locks"].acquire(ev().stack_key):
-        await m.start(MainSG.a)
-        await m.done()
+    await m.start(MainSG.a)
+    await m.done()
     assert not m.has_context()
     assert m.current_stack().last_cmid is None  # remove_kbd отработал
 
@@ -169,10 +165,9 @@ async def test_done_last_removes_kbd(fake_api):
 async def test_reset_stack_mode(fake_api):
     _, _, deps = build_world(fake_api)
     m = await make_manager(deps)
-    async with deps["locks"].acquire(ev().stack_key):
-        await m.start(MainSG.a)
-        await m.start(SubSG.x)
-        await m.start(MainSG.b, mode=StartMode.RESET_STACK)
+    await m.start(MainSG.a)
+    await m.start(SubSG.x)
+    await m.start(MainSG.b, mode=StartMode.RESET_STACK)
     assert len(m.current_stack().intents) == 1
     assert m.current_context().state is MainSG.b
 
@@ -188,8 +183,7 @@ async def test_bg_manager_from_handler_no_deadlock(fake_api):
     _, _, deps = build_world(fake_api)
     factory = BgManagerFactory(group_id=1, **deps)  # group_id как в ev()
     m = await make_manager(deps)
-    async with deps["locks"].acquire(ev().stack_key):
-        await m.start(MainSG.a)
+    await m.start(MainSG.a)
     await m.commit()
     # bg на тот же стек изнутри уже взятого lock'а — реентерабельность
     async with deps["locks"].acquire(ev().stack_key):
@@ -202,10 +196,9 @@ async def test_bg_manager_from_handler_no_deadlock(fake_api):
 async def test_update_merges_and_shows(fake_api):
     _, _, deps = build_world(fake_api)
     m = await make_manager(deps)
-    async with deps["locks"].acquire(ev().stack_key):
-        await m.start(MainSG.a)
-        calls_before = len(fake_api.calls)
-        await m.update({"k": "v"})
+    await m.start(MainSG.a)
+    calls_before = len(fake_api.calls)
+    await m.update({"k": "v"})
     assert m.dialog_data == {"k": "v"}
     assert len(fake_api.calls) >= calls_before  # show() вызван
 
@@ -218,19 +211,13 @@ async def test_nested_bg_update_not_clobbered_by_done(fake_api):
     # был закоммичен вовсе.
     _, _, deps = build_world(fake_api)
     m = await make_manager(deps)
-    async with deps["locks"].acquire(ev().stack_key):
-        await m.start(MainSG.a)
+    await m.start(MainSG.a)
     await m.commit()
-
-    # m2 снимает in-memory копию MainSG.a ДО конкурентного bg()-обновления —
-    # эта копия устареет, как только bg скоммитит своё изменение.
     m2 = await make_manager(deps)
+    await m2.start(SubSG.x)
     bg = m2.bg(peer_id=5)
-    await bg.update({"n": 1})  # конкурентно обновляет родителя (MainSG.a) в storage
-
-    async with deps["locks"].acquire(ev().stack_key):
-        await m2.start(SubSG.x)
-        await m2.done(result="ok")
+    await bg.update({"n": 1})
+    await m2.done(result="ok")
     await m2.commit()
     m3 = await make_manager(deps)
     assert m3.current_context().dialog_data.get("n") == 1
@@ -239,9 +226,8 @@ async def test_nested_bg_update_not_clobbered_by_done(fake_api):
 async def test_root_launch_mode_clears_stack(fake_api):
     deps = build_launch_mode_world(fake_api)
     m = await make_manager(deps)
-    async with deps["locks"].acquire(ev().stack_key):
-        await m.start(MainSG.a)
-        await m.start(RootSG.r)
+    await m.start(MainSG.a)
+    await m.start(RootSG.r)
     assert len(m.current_stack().intents) == 1
     assert m.current_context().state is RootSG.r
 
@@ -249,19 +235,17 @@ async def test_root_launch_mode_clears_stack(fake_api):
 async def test_start_on_exclusive_raises(fake_api):
     deps = build_launch_mode_world(fake_api)
     m = await make_manager(deps)
-    async with deps["locks"].acquire(ev().stack_key):
-        await m.start(ExclusiveSG.e)
-        with pytest.raises(DialogConfigError):
-            await m.start(MainSG.a)
+    await m.start(ExclusiveSG.e)
+    with pytest.raises(DialogConfigError):
+        await m.start(MainSG.a)
 
 
 async def test_single_top_replaces_top(fake_api):
     deps = build_launch_mode_world(fake_api)
     m = await make_manager(deps)
-    async with deps["locks"].acquire(ev().stack_key):
-        await m.start(SingleTopSG.s)
-        first_id = m.current_context().intent_id
-        await m.start(SingleTopSG.s)
+    await m.start(SingleTopSG.s)
+    first_id = m.current_context().intent_id
+    await m.start(SingleTopSG.s)
     assert len(m.current_stack().intents) == 1
     assert m.current_context().intent_id != first_id
 
@@ -275,8 +259,7 @@ async def test_detached_next_reads_reloaded_state_under_lock(fake_api):
     # "актуальное_перезагруженное_состояние + 1".
     _, _, deps = build_world(fake_api)
     setup_mgr = await make_manager(deps)
-    async with deps["locks"].acquire(ev().stack_key):
-        await setup_mgr.start(MainSG.a)
+    await setup_mgr.start(MainSG.a)
     await setup_mgr.commit()
 
     # Detached-менеджер, построенный как _detached_manager в rules.py: контекст
@@ -288,8 +271,7 @@ async def test_detached_next_reads_reloaded_state_under_lock(fake_api):
     # Конкурентное событие того же владельца между check() и захватом lock'а
     # stale_mgr — сдвигает персистентное состояние на MainSG.b.
     concurrent_mgr = await make_manager(deps)
-    async with deps["locks"].acquire(ev().stack_key):
-        await concurrent_mgr.switch_to(MainSG.b)
+    await concurrent_mgr.switch_to(MainSG.b)
     await concurrent_mgr.commit()
 
     await stale_mgr.next()

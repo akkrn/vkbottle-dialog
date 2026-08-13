@@ -253,8 +253,7 @@ async def test_start_uses_explicit_access_settings_over_parent_and_stack(fake_ap
     )
     m = await make_mgr(deps, ev)
     explicit = AccessSettings([111])
-    async with deps["locks"].acquire(ev.stack_key):
-        await m.start(InheritSG.a, access_settings=explicit)
+    await m.start(InheritSG.a, access_settings=explicit)
     assert m.current_context().access_settings == AccessSettings([111])
     # deepcopy: мутация исходного объекта не протекает в контекст
     explicit.user_ids.append(222)
@@ -267,10 +266,9 @@ async def test_start_inherits_parent_context_access_settings(fake_api):
         group_id=1, peer_id=2_000_000_001, owner_id=7, user_id=7, kind="message_event", raw=None
     )
     m = await make_mgr(deps, ev)
-    async with deps["locks"].acquire(ev.stack_key):
-        await m.start(InheritSG.a, access_settings=AccessSettings([7]))
-        parent_settings = m.current_context().access_settings
-        await m.start(InheritSG.a)  # без явного access_settings -> наследует родителя
+    await m.start(InheritSG.a, access_settings=AccessSettings([7]))
+    parent_settings = m.current_context().access_settings
+    await m.start(InheritSG.a)  # без явного access_settings -> наследует родителя
     assert m.current_context().access_settings == AccessSettings([7])
     assert m.current_context().access_settings is not parent_settings  # deepcopy, не тот же объект
 
@@ -284,8 +282,7 @@ async def test_start_falls_back_to_stack_access_settings_with_no_parent(fake_api
     assert not m.has_context()
     stack_settings = m.current_stack().access_settings
     assert stack_settings == AccessSettings([7])  # per-owner дефолт из parse_stack_key
-    async with deps["locks"].acquire(ev.stack_key):
-        await m.start(InheritSG.a)
+    await m.start(InheritSG.a)
     assert m.current_context().access_settings == AccessSettings([7])
     assert m.current_context().access_settings is not stack_settings
 
