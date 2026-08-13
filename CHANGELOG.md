@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 (unreleased)
+
+- **`ListGroup`**: выбор из списка построчно через виджеты; `SubManager` для per-row состояния.
+- **`DynamicMedia`**: медиа из геттера данных (прямой селектор, MagicFilter или callable).
+- **`Jinja`** (extra `[jinja]`): рендер текста через Jinja2-шаблоны.
+- **`Carousel`**: VK-карусель через `template`-систему.
+
+*Примечание: инфра (AccessSettings, Redis-lock) и демо — в разработке (Plan B).*
+
 ## 0.2.2 — 2026-08-13
 
 - detached `next()`/`back()` вычисляют целевое окно под lock'ом после перезагрузки (гонка при конкурентных событиях).

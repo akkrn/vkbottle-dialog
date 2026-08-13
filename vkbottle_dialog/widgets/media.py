@@ -10,6 +10,12 @@ from ..exceptions import DialogConfigError
 from .common import Whenable, WhenCondition
 from .text.base import Const, Text
 
+__all__ = [
+    "DynamicMedia",
+    "Media",
+    "StaticMedia",
+]
+
 
 class Media(Whenable):
     async def render_media(self, data: dict, manager: Any) -> MediaAttachment | None:
