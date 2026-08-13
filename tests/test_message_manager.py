@@ -119,6 +119,56 @@ async def test_text_kbd_transition_deletes(fake_api):
     assert len(fake_api.sent("messages.send")) == 1
 
 
+TEXT_KB = '{"one_time":false,"inline":false,"buttons":[]}'
+
+
+async def test_text_kbd_unchanged_message_event_edits(fake_api):
+    mm = MessageManager(fake_api)
+    msg = new_msg(kb=TEXT_KB, kind=KeyboardKind.TEXT)
+    stack = fresh_stack(
+        last_cmid=50,
+        last_message_sent_at=NOW - 100,
+        last_keyboard_kind=KeyboardKind.TEXT,
+        last_kb_hash=msg.kb_hash(),
+    )
+    await mm.show_message(msg, stack, trigger="message_event", now=NOW)
+    edits = fake_api.sent("messages.edit")
+    assert len(edits) == 1 and "keyboard" not in edits[0]
+    assert fake_api.sent("messages.delete") == []
+    assert fake_api.sent("messages.send") == []
+    assert stack.last_cmid == 50
+    assert stack.last_kb_hash == msg.kb_hash()
+
+
+async def test_text_kbd_changed_message_event_deletes(fake_api):
+    mm = MessageManager(fake_api)
+    msg = new_msg(kb=TEXT_KB, kind=KeyboardKind.TEXT)
+    stack = fresh_stack(
+        last_cmid=50,
+        last_message_sent_at=NOW - 100,
+        last_keyboard_kind=KeyboardKind.TEXT,
+        last_kb_hash="different-hash",
+    )
+    await mm.show_message(msg, stack, trigger="message_event", now=NOW)
+    assert len(fake_api.sent("messages.delete")) == 1
+    assert len(fake_api.sent("messages.send")) == 1
+    assert stack.last_kb_hash == msg.kb_hash()
+
+
+async def test_text_kbd_unchanged_message_new_still_deletes(fake_api):
+    mm = MessageManager(fake_api)
+    msg = new_msg(kb=TEXT_KB, kind=KeyboardKind.TEXT)
+    stack = fresh_stack(
+        last_cmid=50,
+        last_message_sent_at=NOW - 100,
+        last_keyboard_kind=KeyboardKind.TEXT,
+        last_kb_hash=msg.kb_hash(),
+    )
+    await mm.show_message(msg, stack, trigger="message_new", now=NOW)
+    assert len(fake_api.sent("messages.delete")) == 1
+    assert len(fake_api.sent("messages.send")) == 1
+
+
 async def test_remove_kbd(fake_api):
     mm = MessageManager(fake_api)
     stack = fresh_stack(

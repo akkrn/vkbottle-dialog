@@ -42,6 +42,15 @@ class MessageManager:
         if stack.last_cmid is None:
             return ShowMode.SEND
         if stack.last_keyboard_kind is KeyboardKind.TEXT:
+            # Callback-кнопки нижней клавиатуры шлют message_event без
+            # смены самой клавиатуры (она общая на беседу/ЛС и уже стоит
+            # на устройстве) — редактируем только текст окна, не пересылаем.
+            if (
+                trigger == "message_event"
+                and new.keyboard_kind is KeyboardKind.TEXT
+                and stack.last_kb_hash == new.kb_hash()
+            ):
+                return ShowMode.EDIT
             return ShowMode.DELETE_AND_SEND
         if trigger == "message_new":
             return ShowMode.SEND
@@ -77,7 +86,15 @@ class MessageManager:
             "disable_mentions": int(new.disable_mentions),
             "dont_parse_links": int(new.dont_parse_links),
         }
-        if new.keyboard is not None:
+        # Нижняя (TEXT) клавиатура не редактируется через messages.edit — она
+        # общая на переписку и уже стоит на устройстве; передаём её здесь
+        # только когда она ставится ВПЕРВЫЕ этим редактированием (переход
+        # с другого вида клавиатуры), а не когда она и так уже TEXT.
+        skip_keyboard = (
+            new.keyboard_kind is KeyboardKind.TEXT
+            and stack.last_keyboard_kind is KeyboardKind.TEXT
+        )
+        if new.keyboard is not None and not skip_keyboard:
             params["keyboard"] = new.keyboard  # всегда с клавиатурой — иначе VK сотрёт
         attachment, failed = await self._resolve_media(new)
         if attachment is not None:
@@ -98,6 +115,7 @@ class MessageManager:
             return
         stack.last_render_hash = new.render_hash("media:failed" if failed else None)
         stack.last_keyboard_kind = new.keyboard_kind
+        stack.last_kb_hash = new.kb_hash()
         stack.last_text = new.text
         stack.last_media_key = (
             new.media.source_key()
@@ -124,6 +142,7 @@ class MessageManager:
         stack.last_message_sent_at = now
         stack.last_keyboard_kind = new.keyboard_kind
         stack.last_render_hash = new.render_hash("media:failed" if failed else None)
+        stack.last_kb_hash = new.kb_hash()
         stack.last_text = new.text
         stack.last_media_key = (
             new.media.source_key() if attachment is not None and new.media else None
