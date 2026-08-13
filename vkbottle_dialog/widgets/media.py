@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
+
+from magic_filter import MagicFilter
 
 from ..api.entities import MediaAttachment
 from ..exceptions import DialogConfigError
@@ -54,3 +57,23 @@ class StaticMedia(Media):
         return MediaAttachment(
             type=self._type, path=path or None, url=url or None, title=self._title
         )
+
+
+class DynamicMedia(Media):
+    def __init__(
+        self,
+        selector: str | MagicFilter | Callable[[dict], MediaAttachment | None],
+        when: WhenCondition = None,
+    ) -> None:
+        super().__init__(when)
+        self._selector = selector
+
+    async def _render_media(self, data: dict, manager: Any) -> MediaAttachment | None:
+        if isinstance(self._selector, str):
+            try:
+                return data[self._selector]
+            except KeyError as e:
+                raise DialogConfigError(f"DynamicMedia: нет ключа {e} в данных геттеров") from e
+        if isinstance(self._selector, MagicFilter):
+            return self._selector.resolve(data)
+        return self._selector(data)

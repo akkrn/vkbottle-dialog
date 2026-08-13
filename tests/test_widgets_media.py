@@ -1,10 +1,11 @@
 import pytest
+from magic_filter import F
 
-from vkbottle_dialog.api.entities import EventContext
+from vkbottle_dialog.api.entities import EventContext, MediaAttachment
 from vkbottle_dialog.exceptions import DialogConfigError
 from vkbottle_dialog.fsm import State, StatesGroup
 from vkbottle_dialog.widgets.markup import InlineKeyboardFactory
-from vkbottle_dialog.widgets.media import StaticMedia
+from vkbottle_dialog.widgets.media import DynamicMedia, StaticMedia
 from vkbottle_dialog.widgets.text import Const, Format
 from vkbottle_dialog.window import Window
 
@@ -61,3 +62,55 @@ async def test_window_render_carries_media(fake_manager_factory):
     ev = EventContext(group_id=1, peer_id=5, owner_id=5, user_id=5, kind="message_new", raw=None)
     msg = await win.render(RenderManager(ctx), ev, ctx.intent_id, None, InlineKeyboardFactory())
     assert msg.media is not None and msg.media.path == "a.png"
+
+
+async def test_dynamic_media_str_selector(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    dm = DynamicMedia(selector="m")
+    media = await dm.render_media({"m": MediaAttachment(url="http://example.com")}, m)
+    assert media is not None and media.url == "http://example.com"
+
+
+async def test_dynamic_media_str_selector_missing_key(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    dm = DynamicMedia(selector="missing_key")
+    with pytest.raises(DialogConfigError) as exc_info:
+        await dm.render_media({}, m)
+    assert "missing_key" in str(exc_info.value)
+
+
+async def test_dynamic_media_magic_filter_selector(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    dm = DynamicMedia(selector=F["m"])
+    media = await dm.render_media({"m": MediaAttachment(url="http://example.com")}, m)
+    assert media is not None and media.url == "http://example.com"
+
+
+async def test_dynamic_media_callable_selector(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+
+    def select_media(data):
+        return MediaAttachment(url=data["url"])
+
+    dm = DynamicMedia(selector=select_media)
+    media = await dm.render_media({"url": "http://example.com"}, m)
+    assert media is not None and media.url == "http://example.com"
+
+
+async def test_dynamic_media_none_result(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+
+    def select_media(data):
+        return None
+
+    dm = DynamicMedia(selector=select_media)
+    media = await dm.render_media({}, m)
+    assert media is None
+
+
+async def test_dynamic_media_when_hides(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    dm = DynamicMedia(selector="m", when="show")
+    data = {"show": False, "m": MediaAttachment(url="http://example.com")}
+    media = await dm.render_media(data, m)
+    assert media is None
