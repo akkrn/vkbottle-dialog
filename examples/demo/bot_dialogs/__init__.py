@@ -1,6 +1,9 @@
+from .access_demo import access_demo_dialog
 from .calendar import calendar_dialog
+from .carousel_demo import carousel_demo_dialog
 from .counter import counter_dialog
 from .layouts import layouts_dialog
+from .list_demo import list_demo_dialog
 from .main import main_dialog
 from .multiwidget import multiwidget_dialog
 from .scrolls import scrolls_dialog
@@ -21,4 +24,7 @@ ALL_DIALOGS = (
     text_kb_dialog,
     vk_features_dialog,
     name_dialog,
+    list_demo_dialog,
+    carousel_demo_dialog,
+    access_demo_dialog,
 )

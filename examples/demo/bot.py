@@ -16,6 +16,7 @@ from vkbottle_dialog.integration import NotInDialog
 from vkbottle_dialog.storage import MemoryStorage, RedisStorage
 
 from .bot_dialogs import ALL_DIALOGS
+from .bot_dialogs.access_demo import ADMIN_IDS, AdminOnlyInChatValidator
 from .bot_dialogs.states import Main
 
 
@@ -41,6 +42,9 @@ def build_bot(token: str) -> Bot:
         *ALL_DIALOGS,
         storage=build_storage(),
         on_unknown_intent=on_unknown_intent,
+        # секция «🔒 Доступ» (bot_dialogs/access_demo.py) — честная
+        # демонстрация кастомного валидатора, не user_ids-ограничения
+        access_validator=AdminOnlyInChatValidator(ADMIN_IDS),
     )
 
     @bot.on.message(NotInDialog())

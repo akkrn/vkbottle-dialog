@@ -62,7 +62,20 @@ class VkFeatures(StatesGroup):
     MAIN = State()
     COLORS = State()
     NESTED = State()
+    DYNAMIC_MEDIA = State()
 
 
 class NameInput(StatesGroup):
     INPUT = State()
+
+
+class ListDemo(StatesGroup):
+    MAIN = State()
+
+
+class CarouselDemo(StatesGroup):
+    MAIN = State()
+
+
+class AccessDemo(StatesGroup):
+    MAIN = State()
