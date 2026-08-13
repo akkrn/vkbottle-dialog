@@ -8,6 +8,7 @@ from vkbottle_dialog.api.entities import (
     Stack,
     make_stack_key,
     new_intent_id,
+    parse_stack_key,
 )
 from vkbottle_dialog.exceptions import DialogStackOverflow
 from vkbottle_dialog.fsm import State, StatesGroup
@@ -97,3 +98,13 @@ def test_stack_kb_hash_cleared():
     stack.last_kb_hash = "abc123"
     stack.clear_message()
     assert stack.last_kb_hash is None
+
+
+def test_parse_stack_key_roundtrips_make_stack_key():
+    key = make_stack_key(10, 20, 30, "0")
+    assert parse_stack_key(key) == (10, 20, "30", "0")
+
+
+def test_stack_access_settings_defaults_to_none():
+    stack = Stack(key=make_stack_key(1, 2, 2))
+    assert stack.access_settings is None

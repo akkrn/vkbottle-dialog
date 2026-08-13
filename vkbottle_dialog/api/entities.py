@@ -56,8 +56,19 @@ def make_stack_key(
     return f"vkd:stack:{group_id}:{peer_id}:{owner_id}:{stack_id}"
 
 
+def parse_stack_key(key: str) -> tuple[int, int, str, str]:
+    _, _, group_id, peer_id, owner_id, stack_id = key.split(":")
+    return int(group_id), int(peer_id), owner_id, stack_id
+
+
 def context_key(intent_id: str) -> str:
     return f"vkd:context:{intent_id}"
+
+
+@dataclass
+class AccessSettings:
+    user_ids: list[int]
+    custom: Any = None
 
 
 @dataclass
@@ -68,6 +79,7 @@ class Context:
     start_data: Any
     dialog_data: dict = field(default_factory=dict)
     widget_data: dict = field(default_factory=dict)
+    access_settings: AccessSettings | None = None
 
     def same(self, other: Context | None) -> bool:
         return (
@@ -90,6 +102,7 @@ class Stack:
     last_media_key: str | None = None
     last_kb_hash: str | None = None
     last_had_carousel: bool = False
+    access_settings: AccessSettings | None = None
 
     def push(self, state: State, start_data: Any) -> Context:
         if len(self.intents) >= STACK_LIMIT:

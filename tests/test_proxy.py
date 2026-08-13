@@ -1,6 +1,6 @@
 import pytest
 
-from vkbottle_dialog.api.entities import KeyboardKind, make_stack_key
+from vkbottle_dialog.api.entities import AccessSettings, KeyboardKind, context_key, make_stack_key
 from vkbottle_dialog.context.memory import MemoryStorage
 from vkbottle_dialog.context.proxy import StorageProxy
 from vkbottle_dialog.exceptions import UnknownIntent
@@ -146,3 +146,48 @@ async def test_load_stack_without_last_had_carousel_defaults_false(proxy):
 
     stack = await proxy.load_stack(KEY)
     assert stack.last_had_carousel is False
+
+
+async def test_roundtrip_context_access_settings(proxy):
+    stack = await proxy.load_stack(KEY)
+    ctx = stack.push(SG.a, None)
+    ctx.access_settings = AccessSettings([1, 2])
+    await proxy.save(stack, ctx)
+
+    loaded = await proxy.load_context(ctx.intent_id)
+    assert loaded.access_settings == AccessSettings([1, 2])
+
+
+async def test_load_context_without_access_settings_key_is_none(proxy):
+    raw = {
+        "stack_key": KEY,
+        "state": SG.a.state,
+        "start_data": None,
+        "dialog_data": {},
+        "widget_data": {},
+    }
+    await proxy._storage.set(context_key("legacy"), raw)
+
+    ctx = await proxy.load_context("legacy")
+    assert ctx.access_settings is None
+
+
+async def test_load_stack_computes_access_settings_from_numeric_owner(proxy):
+    key = make_stack_key(1, 2, 30)
+    stack = await proxy.load_stack(key)
+    assert stack.access_settings == AccessSettings([30])
+
+
+async def test_load_stack_computes_empty_access_settings_from_non_numeric_owner(proxy):
+    key = make_stack_key(1, 2, "abc")
+    stack = await proxy.load_stack(key)
+    assert stack.access_settings == AccessSettings([])
+
+
+async def test_dump_stack_does_not_persist_access_settings(proxy):
+    stack = await proxy.load_stack(KEY)
+    stack.last_cmid = 42
+    await proxy.save(stack)
+
+    raw = await proxy._storage.get(KEY)
+    assert "access_settings" not in raw

@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..api.entities import Context, KeyboardKind, Stack, context_key
+from ..api.entities import (
+    AccessSettings,
+    Context,
+    KeyboardKind,
+    Stack,
+    context_key,
+    parse_stack_key,
+)
 from ..api.protocols import BaseStorage
 from ..exceptions import UnknownIntent
 from ..fsm import StatesRegistry
@@ -14,9 +21,14 @@ class StorageProxy:
         self._registry = registry
 
     async def load_stack(self, stack_key: str) -> Stack:
+        _, _, owner_id, _ = parse_stack_key(stack_key)
+        try:
+            access_settings = AccessSettings([int(owner_id)])
+        except ValueError:
+            access_settings = AccessSettings([])
         raw = await self._storage.get(stack_key)
         if raw is None:
-            return Stack(key=stack_key)
+            return Stack(key=stack_key, access_settings=access_settings)
         return Stack(
             key=stack_key,
             intents=list(raw["intents"]),
@@ -29,6 +41,7 @@ class StorageProxy:
             last_media_key=raw.get("last_media_key"),
             last_kb_hash=raw.get("last_kb_hash"),
             last_had_carousel=raw.get("last_had_carousel", False),
+            access_settings=access_settings,
         )
 
     async def load_context(self, intent_id: str) -> Context:
@@ -42,6 +55,7 @@ class StorageProxy:
             start_data=raw["start_data"],
             dialog_data=raw["dialog_data"],
             widget_data=raw["widget_data"],
+            access_settings=_load_access_settings(raw.get("access_settings")),
         )
 
     async def load_top(self, stack: Stack) -> Context | None:
@@ -78,7 +92,20 @@ def _dump_context(ctx: Context) -> dict[str, Any]:
         "start_data": ctx.start_data,
         "dialog_data": ctx.dialog_data,
         "widget_data": ctx.widget_data,
+        "access_settings": _dump_access_settings(ctx.access_settings),
     }
+
+
+def _dump_access_settings(access_settings: AccessSettings | None) -> dict[str, Any] | None:
+    if access_settings is None:
+        return None
+    return {"user_ids": access_settings.user_ids, "custom": access_settings.custom}
+
+
+def _load_access_settings(raw: dict[str, Any] | None) -> AccessSettings | None:
+    if raw is None:
+        return None
+    return AccessSettings(user_ids=raw["user_ids"], custom=raw.get("custom"))
 
 
 def _dump_stack(stack: Stack) -> dict[str, Any]:
