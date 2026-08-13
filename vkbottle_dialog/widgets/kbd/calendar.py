@@ -446,6 +446,7 @@ class Calendar(Keyboard):
         return False
 
     async def _process_zoom(self, arg: str, manager: Any, offset: date) -> bool:
+        config = self._config
         if arg == "months":
             self._set_state(manager, CalendarScope.MONTHS, offset, 0)
             return True
@@ -459,6 +460,8 @@ class Calendar(Keyboard):
                 target = date(int(year), int(month), 1)
             except (ValueError, OverflowError):
                 return False
+            if not (config.min_date.replace(day=1) <= target <= config.max_date):
+                return True
             self._set_state(manager, CalendarScope.DAYS, target, 0)
             return True
         if kind == "months":
@@ -466,6 +469,8 @@ class Calendar(Keyboard):
                 target = date(int(rest), 1, 1)
             except (ValueError, OverflowError):
                 return False
+            if not (config.min_date.replace(day=1) <= target <= config.max_date):
+                return True
             self._set_state(manager, CalendarScope.MONTHS, target, 0)
             return True
         return False

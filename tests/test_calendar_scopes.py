@@ -128,3 +128,25 @@ async def test_months_per_page_default_unchanged(fake_manager_factory):
     await cal.process_callback("cal:z:months", m)
     kb = await cal.render_keyboard({}, m)
     assert sum(len(r) for r in kb) == 10  # 3 nav + 6 months + 1 ⋯, как раньше
+
+
+async def test_zoom_days_clamped_at_min_max_is_silent_noop(fake_manager_factory):
+    cfg = CalendarConfig(
+        min_date=date(2026, 1, 1),
+        max_date=date(2026, 12, 31),
+        today=lambda: date(2026, 8, 1),
+    )
+    m = fake_manager_factory(SG.a)
+    cal = Calendar(id="cal", config=cfg)
+    managed = cal.managed(m)
+    # начальное состояние 2026-08-01 (today)
+    assert managed.get_offset() == date(2026, 8, 1)
+    # попытка перейти в 2000 → clamped, no-op
+    assert await cal.process_callback("cal:z:days:2000-06", m) is True
+    assert managed.get_offset() == date(2026, 8, 1)
+    # попытка перейти в 2050 → clamped, no-op
+    assert await cal.process_callback("cal:z:months:2050", m) is True
+    assert managed.get_offset() == date(2026, 8, 1)
+    # валидный переход
+    assert await cal.process_callback("cal:z:days:2026-06", m) is True
+    assert managed.get_offset() == date(2026, 6, 1)
