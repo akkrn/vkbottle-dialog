@@ -31,8 +31,8 @@ class FakeManager:
     async def done(self, result=None, show_mode=None):
         self.calls.append(("done", result))
 
-    async def start(self, state, data=None, mode=None, show_mode=None):
-        self.calls.append(("start", state, data))
+    async def start(self, state, data=None, mode=None, show_mode=None, access_settings=None):
+        self.calls.append(("start", state, data, access_settings))
 
     async def answer(self, snackbar=None, open_link=None):
         self.calls.append(("answer", snackbar))

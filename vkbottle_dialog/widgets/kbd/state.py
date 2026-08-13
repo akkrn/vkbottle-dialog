@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from ...api.entities import ShowMode, StartMode
+from ...api.entities import AccessSettings, ShowMode, StartMode
 from ...fsm import State
 from ..common import WhenCondition
 from ..text.base import Const, Text
@@ -68,14 +68,20 @@ class Start(Button):
         state: State,
         data: Any = None,
         mode: StartMode = StartMode.NORMAL,
+        access_settings: AccessSettings | None = None,
         **kwargs,
     ) -> None:
         super().__init__(text, id, **kwargs)
         self._state = state
         self._data = data
         self._mode = mode
+        self._access_settings = access_settings
 
     async def _action(self, manager: Any) -> None:
         await manager.start(
-            self._state, data=self._data, mode=self._mode, show_mode=self._show_mode
+            self._state,
+            data=self._data,
+            mode=self._mode,
+            show_mode=self._show_mode,
+            access_settings=self._access_settings,
         )

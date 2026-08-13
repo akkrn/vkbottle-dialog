@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import copy
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 from ..api.entities import (
+    AccessSettings,
     Context,
     EventContext,
     LaunchMode,
@@ -31,6 +33,8 @@ class DialogConfig:
     stale_snackbar: str = "Окно устарело, начните заново"
     media_resolver: Any = None
     jinja_env: Any = None
+    access_validator: Any = None
+    access_denied_snackbar: str | None = None
 
 
 class ManagerImpl:
@@ -166,11 +170,17 @@ class ManagerImpl:
         data: Any = None,
         mode: StartMode = StartMode.NORMAL,
         show_mode: ShowMode | None = None,
+        access_settings: AccessSettings | None = None,
     ) -> None:
-        await self._run_detached(self._start_impl, state, data, mode, show_mode)
+        await self._run_detached(self._start_impl, state, data, mode, show_mode, access_settings)
 
     async def _start_impl(
-        self, state: State, data: Any, mode: StartMode, show_mode: ShowMode | None
+        self,
+        state: State,
+        data: Any,
+        mode: StartMode,
+        show_mode: ShowMode | None,
+        access_settings: AccessSettings | None,
     ) -> None:
         if show_mode is not None:
             self.show_mode = show_mode
@@ -178,7 +188,7 @@ class ManagerImpl:
             raise NotImplementedError("StartMode.NEW_STACK не поддержан в v0.1")
         if mode == StartMode.RESET_STACK:
             await self._clear_stack()
-        await self._start_normal(state, data)
+        await self._start_normal(state, data, access_settings)
 
     async def _clear_stack(self) -> None:
         for intent_id in self._stack.intents:
@@ -187,8 +197,22 @@ class ManagerImpl:
         self._stack.intents.clear()
         self._context = None
 
-    async def _start_normal(self, state: State, data: Any) -> None:
+    async def _start_normal(
+        self, state: State, data: Any, access_settings: AccessSettings | None = None
+    ) -> None:
         new_dialog = self._registry.dialog_for_state(state)
+        # Наследование (спека §4.1): явный access_settings → контекст
+        # родителя (тот, что активен ПРЯМО СЕЙЧАС, до возможной очистки
+        # стека ниже) → стек. Считаем это ДО _clear_stack/_pop_current,
+        # чтобы ROOT/EXCLUSIVE, закрывающие родителя, всё равно унаследовали
+        # его settings, если явных не передали.
+        effective_settings = access_settings
+        if effective_settings is None:
+            effective_settings = (
+                self._context.access_settings
+                if self._context is not None
+                else self._stack.access_settings
+            )
         if self._context is not None:
             current_dialog = self.dialog()
             if current_dialog.launch_mode == LaunchMode.EXCLUSIVE:
@@ -198,6 +222,7 @@ class ManagerImpl:
             elif new_dialog.launch_mode == LaunchMode.SINGLE_TOP and new_dialog is current_dialog:
                 await self._pop_current()
         ctx = self._stack.push(state, data)
+        ctx.access_settings = copy.deepcopy(effective_settings)
         self._context = ctx
         self._dirty_contexts[ctx.intent_id] = ctx
         await new_dialog.process_start(self, data, state)

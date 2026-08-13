@@ -151,6 +151,15 @@ class DialogView(ABCView):
                     if context is None:
                         return
 
+                if not await self._is_access_allowed(stack, context, ev):
+                    # Валидатор (спека §4.2) — ПОСЛЕ структурного owner-check
+                    # (тот отсеивается раньше, через несовпадение
+                    # context.stack_key/stack.key в _validate). Тихий ack без
+                    # текста; снекбар — опциональный, решение пользователя.
+                    if latch is not None:
+                        await latch.answer(snackbar=self.config.access_denied_snackbar)
+                    return
+
                 manager = ManagerImpl(
                     event_ctx=ev,
                     registry=self.registry,
@@ -182,6 +191,12 @@ class DialogView(ABCView):
                 if latch is not None and not latch.answered:
                     await latch.answer()
                 raise
+
+    async def _is_access_allowed(self, stack: Any, context: Any, ev: EventContext) -> bool:
+        validator = self.config.access_validator
+        if validator is None:
+            return True
+        return await validator.is_allowed(stack, context, ev)
 
     async def _validate(self, parsed: ParsedPayload | None, stack: Any) -> Any:
         if parsed is None:

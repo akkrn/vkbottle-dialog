@@ -158,6 +158,38 @@ async def test_cross_user_replay_rejected_in_chat(world):
     assert clicked == ["clicked"]
 
 
+async def test_cross_user_replay_rejected_even_with_allow_all_access_validator(fake_api):
+    # Задача 2: жёсткий owner-check (структурная изоляция дефолтных стеков,
+    # тест выше) НЕ делегирован пluggable-валидатору и стоит ПЕРЕД ним —
+    # allow-all валидатор не должен ослаблять эту защиту.
+    class AllowAll:
+        async def is_allowed(self, stack, context, event_ctx):
+            return True
+
+    clicked = []
+
+    async def on_click(event, widget, manager):
+        clicked.append("clicked")
+
+    dialog = Dialog(
+        Window(Const("Меню"), Button(Const("Жми"), id="go", on_click=on_click), state=SG.menu),
+    )
+    bot = Bot("token")
+    setup_dialogs(bot, dialog, storage=MemoryStorage(), api=fake_api, access_validator=AllowAll())
+
+    @bot.on.message(NotInDialog(), text="/start")
+    async def start(message, dialog_manager):
+        await dialog_manager.start(SG.menu, mode=StartMode.RESET_STACK)
+
+    chat_peer = 2_000_000_001
+    await bot.router.route(raw_message_new("/start", peer=chat_peer, from_id=7), fake_api)
+    intent = intent_of(fake_api)
+
+    payload = json.loads(encode_payload(intent, "go", None))
+    await bot.router.route(raw_message_event(payload, peer=chat_peer, user=8), fake_api)
+    assert clicked == []
+
+
 async def test_user_handler_not_in_dialog(world):
     bot, api, _, _ = world
     await bot.router.route(raw_message_new("/start"), api)

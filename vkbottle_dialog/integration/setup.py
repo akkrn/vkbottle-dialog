@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from ..context.access_validator import DefaultAccessValidator
 from ..context.locks import LockRegistry
 from ..context.memory import MemoryStorage
 from ..context.proxy import StorageProxy
@@ -79,6 +80,8 @@ def setup_dialogs(
     on_unknown_intent: Callable | None = None,
     on_unknown_state: Callable | None = None,
     stale_snackbar: str = "Окно устарело, начните заново",
+    access_validator: Any = None,
+    access_denied_snackbar: str | None = None,
 ) -> BgManagerFactory:
     """Подключает диалоги к боту и возвращает BgManagerFactory для bg()
     из внешнего кода (крон, вебхуки и т.п.).
@@ -102,7 +105,11 @@ def setup_dialogs(
     proxy = StorageProxy(storage or MemoryStorage(), states_registry)
     locks = LockRegistry()
     config = DialogConfig(
-        secret=payload_secret, global_getter=getter, stale_snackbar=stale_snackbar
+        secret=payload_secret,
+        global_getter=getter,
+        stale_snackbar=stale_snackbar,
+        access_validator=access_validator or DefaultAccessValidator(),
+        access_denied_snackbar=access_denied_snackbar,
     )
     if markup_factory is not None:
         config.default_markup_factory = markup_factory
