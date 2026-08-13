@@ -58,6 +58,8 @@ class Carousel(Keyboard):
             )
         if element_action == "open_link" and element_url is None:
             raise DialogConfigError("Carousel: element_action='open_link' требует element_url")
+        if element_action == "open_photo" and photo is None:
+            raise DialogConfigError("Carousel: element_action='open_photo' требует photo")
         self._buttons: Sequence[Keyboard] = buttons
         self._items_getter = get_items_getter(items)
         self._item_id_getter = item_id_getter

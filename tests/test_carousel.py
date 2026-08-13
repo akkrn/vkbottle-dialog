@@ -175,6 +175,19 @@ def test_open_link_without_url_raises_config_error():
         )
 
 
+def test_open_photo_without_photo_raises_config_error():
+    with pytest.raises(DialogConfigError):
+        Carousel(
+            id="car",
+            items="items",
+            item_id_getter=get_id,
+            title=Const("t"),
+            description=Const("d"),
+            buttons=[],
+            element_action="open_photo",
+        )
+
+
 def ev():
     return EventContext(group_id=1, peer_id=5, owner_id=5, user_id=5, kind="message_new", raw=None)
 
