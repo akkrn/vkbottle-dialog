@@ -24,7 +24,7 @@ switch_dialog = Dialog(
         Const("🔢 Мастер из 3 шагов"),
         Const("Это окно 1 из 3. Введите данные в следующих окнах."),
         Next(),
-        nav_row(Switch.MAIN),
+        nav_row(),
         state=Switch.MAIN,
     ),
     Window(

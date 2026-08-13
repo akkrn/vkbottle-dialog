@@ -23,7 +23,7 @@ counter_dialog = Dialog(
         Const("Кнопки −/+ меняют значение (0..10), клик по числу — снекбар."),
         Counter(id="cnt", max_value=10, on_text_click=on_text_click),
         Progress(field="progress", width=10),
-        nav_row(CounterSG.MAIN),
+        nav_row(),
         state=CounterSG.MAIN,
         getter=counter_getter,
     ),

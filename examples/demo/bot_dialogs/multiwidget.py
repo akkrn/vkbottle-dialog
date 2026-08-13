@@ -30,7 +30,7 @@ multiwidget_dialog = Dialog(
             items=["😆", "😱", "🤖"],
         ),
         Counter(id="mw_cnt", max_value=5),
-        nav_row(Multiwidget.MAIN),
+        nav_row(),
         state=Multiwidget.MAIN,
     ),
 )
