@@ -1,8 +1,7 @@
 """Главное меню демо-бота: витрина секций vkbottle-dialog.
 
-Задача 1: секций ещё нет, меню содержит только ссылку на репозиторий.
-Каждая следующая задача (2-6) добавляет Start-кнопку своей секции сюда
-и свой диалог в bot_dialogs/__init__.py:ALL_DIALOGS."""
+Каждая секция — своя Start-кнопка здесь и свой диалог в
+bot_dialogs/__init__.py:ALL_DIALOGS."""
 
 from vkbottle_dialog import Dialog, Window
 from vkbottle_dialog.api.entities import LaunchMode

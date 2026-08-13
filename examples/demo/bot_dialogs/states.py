@@ -1,6 +1,5 @@
-"""Все StatesGroup демо-бота: декларируются разом для задач 1-7, чтобы
-main.py (задача 1) мог собрать финальное меню инкрементально, а каждая
-следующая секция просто дописывала свои окна и диалог в ALL_DIALOGS."""
+"""Все StatesGroup демо-бота: одна StatesGroup на секцию главного меню, плюс
+NameInput для вложенного диалога в VkFeatures."""
 
 from vkbottle_dialog.fsm import State, StatesGroup
 
