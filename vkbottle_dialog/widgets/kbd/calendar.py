@@ -70,6 +70,7 @@ class CalendarConfig:
     weekday_names: Sequence[str] = RU_WEEKDAYS
     years_per_page: int = 6
     days_per_page: int = 6
+    months_per_page: int = 6
     today: Callable[[], date] = date.today
 
     def merge(self, user: CalendarUserConfig) -> CalendarConfig:
@@ -143,10 +144,12 @@ class VKCalendarMonthsView:
                 ),
             ]
         ]
-        page = page % 2
-        start = page * 6
+        per_page = config.months_per_page
+        pages = math.ceil(12 / per_page)
+        page = page % pages
+        start = page * per_page
         row: list[VKButton] = []
-        for idx in range(start, start + 6):
+        for idx in range(start, min(start + per_page, 12)):
             scoped = {"data": data, "month": config.month_short_names[idx], "year": offset.year}
             row.append(
                 VKButton(
@@ -158,15 +161,18 @@ class VKCalendarMonthsView:
             if len(row) == 3:
                 kb.append(row)
                 row = []
-        kb.append(
-            [
-                VKButton(
-                    "callback",
-                    await self.more_text.render_text(scope_data, manager),
-                    f"{wid}:p:{(page + 1) % 2}",
-                )
-            ]
-        )
+        if row:
+            kb.append(row)
+        if pages > 1:
+            kb.append(
+                [
+                    VKButton(
+                        "callback",
+                        await self.more_text.render_text(scope_data, manager),
+                        f"{wid}:p:{(page + 1) % pages}",
+                    )
+                ]
+            )
         return kb
 
 

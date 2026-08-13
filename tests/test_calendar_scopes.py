@@ -90,3 +90,41 @@ async def test_year_shift_clamped_at_min_date_is_silent_noop(fake_manager_factor
     managed.set_offset(date(1905, 6, 1))
     assert await cal.process_callback("cal:y:-6", m) is True
     assert managed.get_offset() == date(1905, 6, 1)
+
+
+async def test_months_per_page_paginates_custom_page_size(fake_manager_factory):
+    cfg = CalendarConfig(today=lambda: date(2026, 8, 12), months_per_page=4)
+    m = fake_manager_factory(SG.a)
+    cal = Calendar(id="cal", config=cfg)
+    await cal.process_callback("cal:z:months", m)
+
+    kb = await cal.render_keyboard({}, m)
+    assert sum(len(r) for r in kb) == 8  # 3 nav + 4 months + 1 ⋯
+    month_labels = [b.label for row in kb[1:-1] for b in row]
+    assert month_labels == ["Янв", "Фев", "Мар", "Апр"]
+
+    more = next(b for row in kb for b in row if ":p:" in (b.callback_data or ""))
+    assert await cal.process_callback(more.callback_data, m) is True
+    kb2 = await cal.render_keyboard({}, m)
+    month_labels2 = [b.label for row in kb2[1:-1] for b in row]
+    assert month_labels2 == ["Май", "Июн", "Июл", "Авг"]
+
+    more2 = next(b for row in kb2 for b in row if ":p:" in (b.callback_data or ""))
+    await cal.process_callback(more2.callback_data, m)
+    kb3 = await cal.render_keyboard({}, m)
+    month_labels3 = [b.label for row in kb3[1:-1] for b in row]
+    assert month_labels3 == ["Сен", "Окт", "Ноя", "Дек"]
+
+    more3 = next(b for row in kb3 for b in row if ":p:" in (b.callback_data or ""))
+    await cal.process_callback(more3.callback_data, m)
+    kb4 = await cal.render_keyboard({}, m)
+    month_labels4 = [b.label for row in kb4[1:-1] for b in row]
+    assert month_labels4 == ["Янв", "Фев", "Мар", "Апр"]  # цикл вернулся на 1 страницу
+
+
+async def test_months_per_page_default_unchanged(fake_manager_factory):
+    m = fake_manager_factory(SG.a)
+    cal = Calendar(id="cal", config=CFG)
+    await cal.process_callback("cal:z:months", m)
+    kb = await cal.render_keyboard({}, m)
+    assert sum(len(r) for r in kb) == 10  # 3 nav + 6 months + 1 ⋯, как раньше
