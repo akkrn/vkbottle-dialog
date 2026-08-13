@@ -17,6 +17,7 @@ from vkbottle import Bot
 
 from examples.demo.bot_dialogs import ALL_DIALOGS
 from examples.demo.bot_dialogs.access_demo import ADMIN_IDS, AdminOnlyInChatValidator
+from examples.demo.bot_dialogs.list_demo import ITEMS as LIST_DEMO_ITEMS
 from examples.demo.bot_dialogs.states import Main
 from vkbottle_dialog import StartMode, setup_dialogs
 from vkbottle_dialog.integration import NotInDialog
@@ -105,6 +106,17 @@ def rendered_keyboard(api) -> dict:
         if method in ("messages.send", "messages.edit") and "keyboard" in params:
             return json.loads(params["keyboard"])
     raise AssertionError("окно ни разу не отрендерено с клавиатурой")
+
+
+def rendered_text(api) -> str:
+    """Текст ("message") последнего отрендеренного окна (send или edit —
+    что позже по факту вызова) — и send, и edit всегда несут "message"
+    (в отличие от "keyboard", который может быть опущен, см.
+    rendered_keyboard), поэтому здесь без фильтра по ключу."""
+    for method, params in reversed(api.calls):
+        if method in ("messages.send", "messages.edit"):
+            return params["message"]
+    raise AssertionError("окно ни разу не отрендерено")
 
 
 def rendered_template(api) -> dict:
@@ -266,16 +278,19 @@ async def walk_switch_wizard(bot, api, main_kb: dict) -> dict:
 
 
 async def walk_list_demo(bot, api, main_kb: dict) -> dict:
-    """ListGroup: кликает чекбокс первой строки — callback_data переписан
-    ListGroup'ом в "{lg_id}:{item_id}:{child_cb}" (спека §1.2), поэтому
-    ищем по префиксу/суффиксу, а не по фиксированному id. Успешный рендер
-    без исключений уже проверяет и SubManager-изоляцию строки, и то, что
-    Jinja-геттер (dialog_manager.find("lg").find_for_item) не падает."""
+    """ListGroup: кликает чекбокс первой строки (item_id="i1", см.
+    list_demo.ITEMS) — callback_data переписан ListGroup'ом в
+    "{lg_id}:{item_id}:{child_cb}" (спека §1.2). Не ограничивается тем, что
+    рендер не упал: проверяет, что Jinja-текст над списком реально показал
+    имя только что отмеченной строки — это доказывает весь путь
+    ListGroup+SubManager+Jinja (dialog_manager.find("lg").find_for_item →
+    is_checked → {% for %} в Jinja), а не только отсутствие исключения."""
     payloads = button_payloads(main_kb)
-    chk_payload = next(
-        p for cd, p in payloads.items() if cd.startswith("lg:") and cd.endswith(":chk")
-    )
-    return await click(bot, api, chk_payload)
+    checked_item = LIST_DEMO_ITEMS[0]
+    chk_payload = payloads[f"lg:{checked_item.id}:chk"]
+    kb = await click(bot, api, chk_payload)
+    assert checked_item.name in rendered_text(api)
+    return kb
 
 
 async def walk_carousel_demo(bot, api) -> dict:
