@@ -2,7 +2,7 @@ import asyncio
 
 import fakeredis.aioredis
 
-from vkbottle_dialog.context.redis_lock import RedisLockRegistry
+from vkbottle_dialog.context.redis_lock import _RENEW_SCRIPT, RedisLockRegistry
 
 
 async def test_mutual_exclusion_across_instances():
@@ -137,3 +137,75 @@ async def test_reentrant_same_task_does_not_double_lock_redis():
             val2 = await r.get("vkd:lock:k")
         assert val2 == val1  # токен не менялся — второго SET не было
     assert await r.get("vkd:lock:k") is None
+
+
+async def test_heartbeat_crash_does_not_block_release(monkeypatch):
+    # регрессия: если _heartbeat падает не от CancelledError (например транзиентный
+    # ConnectionError/TimeoutError на eval), release-finally обязан всё равно
+    # выполнить compare-and-delete и не пробросить исключение heartbeat наружу
+    r = fakeredis.aioredis.FakeRedis()
+    reg = RedisLockRegistry(r, ttl=5, retry_interval=0.01)
+
+    async def crashing_heartbeat(rkey, token):
+        raise ConnectionError("boom")
+
+    monkeypatch.setattr(reg, "_heartbeat", crashing_heartbeat)
+
+    async with reg.acquire("k"):
+        # даём фоновой таске шанс реально упасть до того, как release
+        # вызовет heartbeat.cancel()/await heartbeat
+        await asyncio.sleep(0.02)
+    # exit из "async with" не пробросил ConnectionError, и lock всё равно снят
+    assert await r.get("vkd:lock:k") is None
+
+
+async def test_heartbeat_transient_renew_error_does_not_kill_heartbeat():
+    # регрессия: одна неудачная попытка продления TTL не должна навсегда
+    # останавливать heartbeat — следующая попытка должна продлить TTL как обычно
+    r = fakeredis.aioredis.FakeRedis()
+    ttl = 0.15
+    holder = RedisLockRegistry(r, ttl=ttl, retry_interval=0.02)
+    waiter = RedisLockRegistry(r, ttl=ttl, retry_interval=0.02)
+
+    real_eval = r.eval
+    renew_calls = {"count": 0}
+
+    async def flaky_eval(script, numkeys, *args, **kwargs):
+        if script == _RENEW_SCRIPT:
+            renew_calls["count"] += 1
+            if renew_calls["count"] == 1:
+                raise ConnectionError("transient")
+        return await real_eval(script, numkeys, *args, **kwargs)
+
+    r.eval = flaky_eval
+
+    holding = asyncio.Event()
+    release = asyncio.Event()
+
+    async def hold():
+        async with holder.acquire("k"):
+            holding.set()
+            await release.wait()
+
+    holder_task = asyncio.create_task(hold())
+    await holding.wait()
+
+    waiter_done = asyncio.Event()
+
+    async def wait_for_lock():
+        async with waiter.acquire("k"):
+            pass
+        waiter_done.set()
+
+    waiter_task = asyncio.create_task(wait_for_lock())
+
+    # первая попытка продления упадёт, но вторая должна продлить TTL и не дать
+    # lock'у истечь — второй acquirer всё ещё блокируется дольше 2 TTL-окон
+    await asyncio.sleep(ttl * 2.5)
+    assert not waiter_done.is_set()
+    assert renew_calls["count"] >= 2  # была хотя бы одна неудачная и одна успешная попытка
+
+    release.set()
+    await asyncio.wait_for(waiter_done.wait(), timeout=2.0)
+    await holder_task
+    await waiter_task
