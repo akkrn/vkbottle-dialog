@@ -22,6 +22,7 @@ from vkbottle_dialog.window import Window
 class MainSG(StatesGroup):
     a = State()
     b = State()
+    c = State()
 
 
 class SubSG(StatesGroup):
@@ -51,6 +52,7 @@ def build_world(fake_api):
     main = Dialog(
         Window(Const("A"), Button(Const("b"), id="btn"), state=MainSG.a),
         Window(Format("B"), state=MainSG.b),
+        Window(Const("C"), state=MainSG.c),
         on_process_result=on_sub_result,
     )
     sub = Dialog(Window(Const("X"), state=SubSG.x))
@@ -246,6 +248,36 @@ async def test_single_top_replaces_top(fake_api):
     await m.start(SingleTopSG.s)
     assert len(m.current_stack().intents) == 1
     assert m.current_context().intent_id != first_id
+
+
+async def test_detached_next_reads_reloaded_state_under_lock(fake_api):
+    # Регрессия: next()/back() раньше считали idx = states.index(state) из
+    # pre-lock снимка _context (снятого в rule.check()), ДО того как
+    # _run_detached перечитывает контекст из storage под lock'ом. Конкурентное
+    # событие того же владельца, сдвинувшее состояние между check() и
+    # захватом lock'а, приводило к "устаревшее_состояние + 1" вместо
+    # "актуальное_перезагруженное_состояние + 1".
+    _, _, deps = build_world(fake_api)
+    setup_mgr = await make_manager(deps)
+    await setup_mgr.start(MainSG.a)
+    await setup_mgr.commit()
+
+    # Detached-менеджер, построенный как _detached_manager в rules.py: контекст
+    # прочитан, пока состояние ещё MainSG.a — это pre-lock снимок.
+    stale_mgr = await make_manager(deps)
+    stale_mgr._detached = True
+    assert stale_mgr.current_context().state is MainSG.a
+
+    # Конкурентное событие того же владельца между check() и захватом lock'а
+    # stale_mgr — сдвигает персистентное состояние на MainSG.b.
+    concurrent_mgr = await make_manager(deps)
+    await concurrent_mgr.switch_to(MainSG.b)
+    await concurrent_mgr.commit()
+
+    await stale_mgr.next()
+
+    final_mgr = await make_manager(deps)
+    assert final_mgr.current_context().state is MainSG.c
 
 
 async def test_detached_start_reloads_stack_under_lock(fake_api):

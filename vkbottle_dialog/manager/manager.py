@@ -224,18 +224,25 @@ class ManagerImpl:
             await self.show()
 
     async def next(self, show_mode: ShowMode | None = None) -> None:
-        states = self.dialog().states()
-        idx = states.index(self.current_context().state)
-        if idx >= len(states) - 1:
-            raise DialogConfigError("next() за последним окном")
-        await self.switch_to(states[idx + 1], show_mode)
+        # Как и в switch_to: индекс должен считаться внутри _navigate_impl,
+        # ПОСЛЕ возможного reload'а контекста в _run_detached, а не здесь —
+        # иначе detached-вызов вычислит цель по pre-lock снимку состояния.
+        detached = self._detached
+        await self._run_detached(self._navigate_impl, 1, show_mode, detached)
 
     async def back(self, show_mode: ShowMode | None = None) -> None:
+        detached = self._detached
+        await self._run_detached(self._navigate_impl, -1, show_mode, detached)
+
+    async def _navigate_impl(self, delta: int, show_mode: ShowMode | None, render: bool) -> None:
         states = self.dialog().states()
         idx = states.index(self.current_context().state)
-        if idx == 0:
+        target = idx + delta
+        if target < 0:
             raise DialogConfigError("back() до первого окна")
-        await self.switch_to(states[idx - 1], show_mode)
+        if target >= len(states):
+            raise DialogConfigError("next() за последним окном")
+        await self._switch_to_impl(states[target], show_mode, render)
 
     async def done(self, result: Any = None, show_mode: ShowMode | None = None) -> None:
         await self._run_detached(self._done_impl, result, show_mode)
