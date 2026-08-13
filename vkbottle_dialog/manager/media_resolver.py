@@ -4,6 +4,7 @@ import contextlib
 import hashlib
 import logging
 import os
+from collections import OrderedDict
 from collections.abc import Callable
 from typing import Any
 
@@ -11,8 +12,11 @@ from vkbottle.tools import DocMessagesUploader, PhotoMessageUploader
 
 from ..api.entities import MediaAttachment
 from ..api.protocols import BaseStorage
+from ..context.locks import LockRegistry
 
 logger = logging.getLogger("vkbottle_dialog")
+
+MEDIA_CACHE_MAXSIZE = 1024
 
 
 class MediaResolver:
@@ -27,7 +31,8 @@ class MediaResolver:
         self._storage = storage
         self._photo_factory = photo_uploader_factory or PhotoMessageUploader
         self._doc_factory = doc_uploader_factory or DocMessagesUploader
-        self._cache: dict[str, str] = {}
+        self._cache: OrderedDict[str, str] = OrderedDict()
+        self._locks = LockRegistry()
 
     def _cache_key(self, media: MediaAttachment, peer_id: int) -> str:
         key = media.source_key()
@@ -44,19 +49,32 @@ class MediaResolver:
             return media.attachment
         key = self._cache_key(media, peer_id)
         if key in self._cache:
+            self._cache.move_to_end(key)
             return self._cache[key]
-        stored = await self._storage_get(key)
-        if stored:
-            self._cache[key] = stored
-            return stored
-        try:
-            attachment = await self._upload(media, peer_id)
-        except Exception as e:  # деградация: окно уйдёт без медиа
-            logger.warning("media upload failed for %s: %r", media.source_key(), e)
-            return None
+        async with self._locks.acquire(key):
+            # второй конкурентный resolve того же ключа мог дождаться lock'а
+            # и найти значение уже в кэше — не грузим повторно
+            if key in self._cache:
+                self._cache.move_to_end(key)
+                return self._cache[key]
+            stored = await self._storage_get(key)
+            if stored:
+                self._cache_put(key, stored)
+                return stored
+            try:
+                attachment = await self._upload(media, peer_id)
+            except Exception as e:  # деградация: окно уйдёт без медиа
+                logger.warning("media upload failed for %s: %r", media.source_key(), e)
+                return None
+            self._cache_put(key, attachment)
+            await self._storage_set(key, attachment)
+            return attachment
+
+    def _cache_put(self, key: str, attachment: str) -> None:
         self._cache[key] = attachment
-        await self._storage_set(key, attachment)
-        return attachment
+        self._cache.move_to_end(key)
+        if len(self._cache) > MEDIA_CACHE_MAXSIZE:
+            self._cache.popitem(last=False)
 
     async def _upload(self, media: MediaAttachment, peer_id: int) -> str:
         source: Any = media.path

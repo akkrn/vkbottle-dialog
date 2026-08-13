@@ -1,8 +1,10 @@
+import asyncio
+
 import pytest
 
 from vkbottle_dialog.api.entities import MediaAttachment
 from vkbottle_dialog.context.memory import MemoryStorage
-from vkbottle_dialog.manager.media_resolver import MediaResolver
+from vkbottle_dialog.manager.media_resolver import MEDIA_CACHE_MAXSIZE, MediaResolver
 
 
 class FakeUploader:
@@ -10,6 +12,16 @@ class FakeUploader:
         self.calls = []
 
     async def upload(self, file_source, peer_id=None, **kw):
+        self.calls.append((file_source, peer_id, kw))
+        return f"photo1_{len(self.calls)}_key"
+
+
+class SlowUploader:
+    def __init__(self, api):
+        self.calls = []
+
+    async def upload(self, file_source, peer_id=None, **kw):
+        await asyncio.sleep(0.05)
         self.calls.append((file_source, peer_id, kw))
         return f"photo1_{len(self.calls)}_key"
 
@@ -133,6 +145,43 @@ async def test_broken_storage_degrades_but_upload_succeeds(tmp_path):
     result = await r.resolve(media, peer_id=1)
     assert result == "photo1_1_key"
     assert len(uploader.calls) == 1
+
+
+async def test_concurrent_resolve_same_key_uploads_once(tmp_path):
+    uploader = SlowUploader(None)
+    r = MediaResolver(
+        api=None,
+        photo_uploader_factory=lambda api: uploader,
+        doc_uploader_factory=lambda api: uploader,
+    )
+    f = tmp_path / "a.png"
+    f.write_bytes(b"x")
+    media = MediaAttachment(path=str(f))
+
+    first, second = await asyncio.gather(r.resolve(media, peer_id=1), r.resolve(media, peer_id=1))
+    assert first == second
+    assert len(uploader.calls) == 1
+
+
+async def test_cache_is_bounded_lru(tmp_path):
+    uploader = FakeUploader(None)
+    r = MediaResolver(
+        api=None,
+        photo_uploader_factory=lambda api: uploader,
+        doc_uploader_factory=lambda api: uploader,
+    )
+    paths = []
+    for i in range(MEDIA_CACHE_MAXSIZE + 1):
+        f = tmp_path / f"f{i}.png"
+        f.write_bytes(b"x")
+        paths.append(str(f))
+
+    for path in paths:
+        await r.resolve(MediaAttachment(path=path), peer_id=1)
+
+    assert len(r._cache) <= MEDIA_CACHE_MAXSIZE
+    oldest_key = r._cache_key(MediaAttachment(path=paths[0]), peer_id=1)
+    assert oldest_key not in r._cache
 
 
 async def test_corrupt_non_dict_storage_doc_degrades_but_upload_succeeds(tmp_path):
