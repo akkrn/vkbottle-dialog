@@ -4,7 +4,11 @@ import pytest
 
 from vkbottle_dialog.api.entities import MediaAttachment
 from vkbottle_dialog.context.memory import MemoryStorage
-from vkbottle_dialog.manager.media_resolver import MEDIA_CACHE_MAXSIZE, MediaResolver
+from vkbottle_dialog.manager.media_resolver import (
+    MEDIA_CACHE_MAXSIZE,
+    MediaResolver,
+    attachment_to_photo_id,
+)
 
 
 class FakeUploader:
@@ -145,6 +149,14 @@ async def test_broken_storage_degrades_but_upload_succeeds(tmp_path):
     result = await r.resolve(media, peer_id=1)
     assert result == "photo1_1_key"
     assert len(uploader.calls) == 1
+
+
+def test_attachment_to_photo_id_strips_type_and_access_key():
+    assert attachment_to_photo_id("photo-100_200_abc") == "-100_200"
+
+
+def test_attachment_to_photo_id_no_access_key():
+    assert attachment_to_photo_id("photo1_1") == "1_1"
 
 
 async def test_concurrent_resolve_same_key_uploads_once(tmp_path):

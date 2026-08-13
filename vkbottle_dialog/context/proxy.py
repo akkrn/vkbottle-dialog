@@ -28,6 +28,7 @@ class StorageProxy:
             inline_supported=raw["inline_supported"],
             last_media_key=raw.get("last_media_key"),
             last_kb_hash=raw.get("last_kb_hash"),
+            last_had_carousel=raw.get("last_had_carousel", False),
         )
 
     async def load_context(self, intent_id: str) -> Context:
@@ -91,4 +92,5 @@ def _dump_stack(stack: Stack) -> dict[str, Any]:
         "inline_supported": stack.inline_supported,
         "last_media_key": stack.last_media_key,
         "last_kb_hash": stack.last_kb_hash,
+        "last_had_carousel": stack.last_had_carousel,
     }

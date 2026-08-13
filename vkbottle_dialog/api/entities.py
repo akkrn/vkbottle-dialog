@@ -5,11 +5,14 @@ import secrets
 import string
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..exceptions import DialogConfigError, DialogStackOverflow
 from ..fsm import State
 from ..limits import STACK_LIMIT
+
+if TYPE_CHECKING:
+    from ..widgets.kbd.base import VKButton
 
 _ALPHABET = string.digits + string.ascii_letters
 PEER_ID_OFFSET = 2_000_000_000
@@ -86,6 +89,7 @@ class Stack:
     inline_supported: bool | None = None
     last_media_key: str | None = None
     last_kb_hash: str | None = None
+    last_had_carousel: bool = False
 
     def push(self, state: State, start_data: Any) -> Context:
         if len(self.intents) >= STACK_LIMIT:
@@ -113,6 +117,7 @@ class Stack:
         self.last_text = None
         self.last_media_key = None
         self.last_kb_hash = None
+        self.last_had_carousel = False
 
 
 @dataclass
@@ -151,6 +156,43 @@ class MediaAttachment:
 
 
 @dataclass
+class CarouselElement:
+    """Один элемент карусели. photo остаётся НЕразрешённым MediaAttachment —
+    MessageManager резолвит его под общим media-пайплайном (кэш/аплоуд), как
+    и обычное окно-медиа. buttons/action уже финальны (payload закодирован
+    Window.render — там есть intent_id/secret; сам виджет их не видит)."""
+
+    title: str
+    description: str
+    photo: MediaAttachment | None
+    buttons: list[VKButton]
+    action: dict[str, str] | None = None
+
+
+@dataclass
+class CarouselSpec:
+    elements: list[CarouselElement]
+
+    def descriptor(self) -> str:
+        """Стабильный дескриптор для render_hash — без резолва фото (только
+        source_key, без аплоуда), детерминированный по уже посчитанным
+        title/description/payload/action."""
+        parts = []
+        for el in self.elements:
+            btn_key = "|".join(
+                f"{b.label}:{b.action}:{b.callback_data or b.link or ''}" for b in el.buttons
+            )
+            photo_key = el.photo.source_key() if el.photo else ""
+            action_key = (
+                "" if el.action is None else f"{el.action.get('type')}:{el.action.get('link', '')}"
+            )
+            parts.append(
+                f"{el.title}\x01{el.description}\x01{photo_key}\x01{btn_key}\x01{action_key}"
+            )
+        return "\x02".join(parts)
+
+
+@dataclass
 class NewMessage:
     peer_id: int
     text: str
@@ -160,6 +202,7 @@ class NewMessage:
     disable_mentions: bool = True
     dont_parse_links: bool = False
     show_mode: ShowMode = ShowMode.AUTO
+    carousel: CarouselSpec | None = None
 
     def render_hash(self, media_override: str | None = None) -> str:
         media_key = (
@@ -167,7 +210,8 @@ class NewMessage:
             if media_override is not None
             else (self.media.source_key() if self.media else "")
         )
-        raw = f"{self.text}\x00{self.keyboard or ''}\x00{media_key}"
+        carousel_key = self.carousel.descriptor() if self.carousel else ""
+        raw = f"{self.text}\x00{self.keyboard or ''}\x00{media_key}\x00{carousel_key}"
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
     def kb_hash(self) -> str:

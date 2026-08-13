@@ -4,6 +4,7 @@ import contextlib
 import hashlib
 import logging
 import os
+import re
 from collections import OrderedDict
 from collections.abc import Callable
 from typing import Any
@@ -17,6 +18,18 @@ from ..context.locks import LockRegistry
 logger = logging.getLogger("vkbottle_dialog")
 
 MEDIA_CACHE_MAXSIZE = 1024
+
+_TYPE_PREFIX_RE = re.compile(r"^[a-zA-Z]+")
+
+
+def attachment_to_photo_id(attachment: str) -> str:
+    """ "photo-100_200_abc" -> "-100_200" — карусель ждёт photo_id без
+    типа-префикса и без access_key (VK carousel research: element.photo_id
+    формата "{owner_id}_{media_id}")."""
+    body = _TYPE_PREFIX_RE.sub("", attachment, count=1)
+    owner, _, rest = body.partition("_")
+    media, _, _access_key = rest.partition("_")
+    return f"{owner}_{media}"
 
 
 class MediaResolver:
