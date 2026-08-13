@@ -92,7 +92,7 @@ vkbottle **не блокирует** события между views: `DialogVie
 
 ## Соответствие aiogram-dialog → vkbottle-dialog
 
-| aiogram-dialog | vkbottle-dialog (v0.2) | Статус |
+| aiogram-dialog | vkbottle-dialog | Статус |
 |---|---|---|
 | `Dialog`, `Window`, `DialogManager` | `Dialog`, `Window`, `DialogManager` | ✅ |
 | `Const`, `Format`, `Case`, `Multi`, `Or` | `Const`, `Format`, `Case`, `Multi`, `Or` | ✅ |
