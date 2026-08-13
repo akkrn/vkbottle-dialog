@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import secrets
+from dataclasses import dataclass
 from typing import Any
 
 from vkbottle.exception_factory import VKAPIError
@@ -13,6 +14,17 @@ from ..widgets.markup import EMPTY_KEYBOARD_JSON
 from .media_resolver import attachment_to_photo_id
 
 logger = logging.getLogger("vkbottle_dialog")
+
+
+@dataclass
+class ResolvedMedia:
+    """Результат MessageManager.resolve_media — снят с сети (аплоуд, если
+    нужен) ДО, а не под stack-lock'ом (спека §6)."""
+
+    attachment: str | None
+    media_failed: bool
+    carousel_template: str | None
+    carousel_failed: bool
 
 
 def _carousel_label(button: Any) -> str:
@@ -45,19 +57,52 @@ class MessageManager:
     async def show_message(
         self, new: NewMessage, stack: Stack, *, trigger: str, now: float
     ) -> None:
+        """Самодостаточный путь: решает режим, резолвит медиа (сеть) и
+        отправляет — всё последовательно. Используется там, где резолв
+        медиа не нужно выносить из-под lock'а (прямые вызовы MessageManager
+        в обход ManagerImpl.show(), например в тестах). ManagerImpl.show()
+        сам вызывает decide_mode/resolve_media/apply по отдельности, чтобы
+        вставить между resolve и apply освобождение stack-lock'а (спека
+        §6) — см. manager.py."""
+        mode = self.decide_mode(new, stack, trigger=trigger, now=now)
+        if mode is None:
+            return  # рендер не изменился — пропуск
+        resolved = await self.resolve_media(new)
+        await self.apply(mode, new, resolved, stack, now=now)
+
+    def decide_mode(
+        self, new: NewMessage, stack: Stack, *, trigger: str, now: float
+    ) -> ShowMode | None:
         mode: ShowMode | None = new.show_mode
         if mode == ShowMode.AUTO:
             mode = self._auto_mode(new, stack, trigger, now)
-            if mode is None:
-                return  # рендер не изменился — пропуск
+        return mode
+
+    async def resolve_media(self, new: NewMessage) -> ResolvedMedia:
+        """Сетевая часть (аплоуд) — сознательно НЕ трогает stack: работает
+        только с media/carousel-дескрипторами из NewMessage, безопасна для
+        вызова вне stack-lock'а (спека §6)."""
+        attachment, media_failed = await self._resolve_media(new)
+        carousel_template, carousel_failed = await self._resolve_carousel(new)
+        return ResolvedMedia(attachment, media_failed, carousel_template, carousel_failed)
+
+    async def apply(
+        self,
+        mode: ShowMode,
+        new: NewMessage,
+        resolved: ResolvedMedia,
+        stack: Stack,
+        *,
+        now: float,
+    ) -> None:
         if mode == ShowMode.EDIT:
-            await self._edit_or_send(new, stack, now)
+            await self._edit_or_send(new, stack, now, resolved)
         elif mode == ShowMode.SEND:
             await self._strip_old_kbd(stack, new.peer_id, now)
-            await self._send(new, stack, now)
+            await self._send(new, stack, now, resolved)
         elif mode == ShowMode.DELETE_AND_SEND:
             await self._delete_old(stack, new.peer_id)
-            await self._send(new, stack, now)
+            await self._send(new, stack, now, resolved)
 
     def _auto_mode(
         self, new: NewMessage, stack: Stack, trigger: str, now: float
@@ -138,16 +183,18 @@ class MessageManager:
         )
         return template, failed
 
-    async def _edit_or_send(self, new: NewMessage, stack: Stack, now: float) -> None:
+    async def _edit_or_send(
+        self, new: NewMessage, stack: Stack, now: float, resolved: ResolvedMedia
+    ) -> None:
         if not self._editable(stack, now):
-            await self._send(new, stack, now)
+            await self._send(new, stack, now, resolved)
             return
         if (new.carousel is not None) != stack.last_had_carousel:
             # Явный ShowMode.EDIT (в обход AUTO) на границе карусель<->окно —
             # omit-семантика template в messages.edit не подтверждена (спека
             # §5.2/§7): консервативно ведём себя как AUTO — delete+send.
             await self._delete_old(stack, new.peer_id)
-            await self._send(new, stack, now)
+            await self._send(new, stack, now, resolved)
             return
         params: dict = {
             "peer_id": new.peer_id,
@@ -168,12 +215,12 @@ class MessageManager:
         )
         if new.keyboard is not None and not skip_keyboard:
             params["keyboard"] = new.keyboard  # всегда с клавиатурой — иначе VK сотрёт
-        attachment, failed = await self._resolve_media(new)
+        attachment, failed = resolved.attachment, resolved.media_failed
         if attachment is not None:
             params["attachment"] = attachment
         elif new.media is None and stack.last_media_key:
             params["attachment"] = ""  # явная очистка — омит не очищает вложение
-        template, carousel_failed = await self._resolve_carousel(new)
+        template, carousel_failed = resolved.carousel_template, resolved.carousel_failed
         if template is not None:
             params["template"] = template
         try:
@@ -186,7 +233,7 @@ class MessageManager:
                 e,
                 sorted(params),
             )
-            await self._send(new, stack, now)
+            await self._send(new, stack, now, resolved)
             return
         stack.last_render_hash = new.render_hash(
             "media:failed" if failed else None, "carousel:failed" if carousel_failed else None
@@ -201,7 +248,9 @@ class MessageManager:
             else (None if new.media is None else stack.last_media_key)
         )
 
-    async def _send(self, new: NewMessage, stack: Stack, now: float) -> None:
+    async def _send(
+        self, new: NewMessage, stack: Stack, now: float, resolved: ResolvedMedia
+    ) -> None:
         params: dict = {
             "peer_ids": [new.peer_id],
             "random_id": secrets.randbelow(2**31),
@@ -211,10 +260,10 @@ class MessageManager:
         }
         if new.keyboard is not None:
             params["keyboard"] = new.keyboard
-        attachment, failed = await self._resolve_media(new)
+        attachment, failed = resolved.attachment, resolved.media_failed
         if attachment is not None:
             params["attachment"] = attachment
-        template, carousel_failed = await self._resolve_carousel(new)
+        template, carousel_failed = resolved.carousel_template, resolved.carousel_failed
         if template is not None:
             params["template"] = template
         response = await self._api.request("messages.send", params)

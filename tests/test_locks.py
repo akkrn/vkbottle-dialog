@@ -46,6 +46,38 @@ async def test_registry_cleanup():
     assert len(reg._locks) == 0
 
 
+async def test_suspend_releases_lock_for_other_waiters():
+    reg = LockRegistry()
+    order: list[str] = []
+
+    async def other():
+        async with reg.acquire("k"):
+            order.append("other-in")
+
+    async with reg.acquire("k"):
+        order.append("holder-in")
+        task = asyncio.create_task(other())
+        async with reg.suspend("k"):
+            # lock отпущен — конкурент должен успеть зайти и выйти
+            await asyncio.wait_for(task, timeout=1)
+        order.append("holder-resumed")
+    assert order == ["holder-in", "other-in", "holder-resumed"]
+
+
+async def test_suspend_reacquires_lock_after_block():
+    reg = LockRegistry()
+    async with reg.acquire("k"):
+        assert reg.held("k")
+        async with reg.suspend("k"):
+            assert not reg.held("k")
+        assert reg.held("k")
+
+
+async def test_held_false_when_not_acquired():
+    reg = LockRegistry()
+    assert not reg.held("k")
+
+
 async def test_spawned_task_does_not_inherit_lock():
     reg = LockRegistry()
     order: list[str] = []
