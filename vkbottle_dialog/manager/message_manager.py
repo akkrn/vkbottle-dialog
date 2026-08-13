@@ -87,7 +87,13 @@ class MessageManager:
         try:
             await self._api.request("messages.edit", params)
         except VKAPIError as e:
-            logger.debug("edit failed (%s), отправляю новое окно", e)
+            logger.warning(
+                "messages.edit не прошёл (code=%s: %s; params=%s) — "
+                "отправляю новое окно вместо редактирования",
+                getattr(e, "code", "?"),
+                e,
+                sorted(params),
+            )
             await self._send(new, stack, now)
             return
         stack.last_render_hash = new.render_hash("media:failed" if failed else None)
