@@ -21,7 +21,7 @@ async def on_name_success(message, widget, manager, value) -> None:
 
 name_dialog = Dialog(
     Window(
-        Const("Введи имя:"),
+        Const("Введите имя:"),
         TextInput(id="nm", on_success=on_name_success),
         Cancel(),
         state=NameInput.INPUT,
