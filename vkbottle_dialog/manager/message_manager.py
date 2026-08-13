@@ -49,6 +49,7 @@ class MessageManager:
                 trigger == "message_event"
                 and new.keyboard_kind is KeyboardKind.TEXT
                 and stack.last_kb_hash == new.kb_hash()
+                and self._editable(stack, now)
             ):
                 return ShowMode.EDIT
             return ShowMode.DELETE_AND_SEND

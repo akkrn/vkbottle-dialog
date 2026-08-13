@@ -188,6 +188,25 @@ async def test_explicit_edit_text_kbd_changed_includes_keyboard(fake_api):
     assert stack.last_kb_hash == msg.kb_hash()
 
 
+async def test_text_kbd_unchanged_but_stale_deletes_instead_of_edit(fake_api):
+    # Окно старше окна редактирования VK (23.5ч запас к лимиту 24ч) — даже
+    # при неизменной нижней клавиатуре и message_event нельзя молча
+    # свалиться в bare _send (оставив старое окно висеть): должно быть
+    # DELETE_AND_SEND, как раньше для любого TEXT-кейса.
+    mm = MessageManager(fake_api)
+    msg = new_msg(kb=TEXT_KB, kind=KeyboardKind.TEXT)
+    stack = fresh_stack(
+        last_cmid=50,
+        last_message_sent_at=NOW - 90_000,  # > EDIT_WINDOW_SECONDS
+        last_keyboard_kind=KeyboardKind.TEXT,
+        last_kb_hash=msg.kb_hash(),
+    )
+    await mm.show_message(msg, stack, trigger="message_event", now=NOW)
+    assert len(fake_api.sent("messages.delete")) == 1
+    assert len(fake_api.sent("messages.send")) == 1
+    assert fake_api.sent("messages.edit") == []
+
+
 async def test_remove_kbd(fake_api):
     mm = MessageManager(fake_api)
     stack = fresh_stack(
