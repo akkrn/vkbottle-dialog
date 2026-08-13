@@ -163,13 +163,22 @@ vkbottle **не блокирует** события между views: `DialogVie
 3. Там же, в Типы событий, включите **`message_event`** (и `message_new`) — без него клики по
    инлайн-кнопкам будут молча теряться (см. «Обязательно» выше).
 
+**Получение исходников** (`examples/` не входит в wheel-пакет на PyPI, нужен клон репозитория):
+
+```bash
+git clone https://github.com/akkrn/vkbottle-dialog && cd vkbottle-dialog && uv sync
+```
+
+(или `pip install -e .` вместо `uv sync`, если вы не используете uv).
+
 **Запуск:**
 
 ```bash
 VK_TOKEN=<ключ_доступа_сообщества> python -m examples.demo.bot
 ```
 
-**systemd-юнит** (пример, `/etc/systemd/system/vkd-demo.service`):
+**systemd-юнит** (пример, `/etc/systemd/system/vkd-demo.service`; `/opt/vkbottle-dialog` — клон
+репозитория из шага выше, с виртуальным окружением `.venv`, созданным `uv sync`):
 
 ```ini
 [Unit]
