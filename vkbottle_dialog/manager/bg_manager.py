@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..api.entities import EventContext, ShowMode, StartMode
-from ..context.locks import LockRegistry
+from ..context.locks import LockRegistryLike
 from ..context.proxy import StorageProxy
 from ..fsm import State
 from .manager import DialogConfig, ManagerImpl
@@ -18,7 +18,7 @@ class BgManager:
         registry: Any,
         proxy: StorageProxy,
         message_manager: MessageManager,
-        locks: LockRegistry,
+        locks: LockRegistryLike,
         config: DialogConfig,
     ) -> None:
         self._coords = coords
@@ -72,7 +72,7 @@ class BgManagerFactory:
         registry: Any,
         proxy: StorageProxy,
         message_manager: MessageManager,
-        locks: LockRegistry,
+        locks: LockRegistryLike,
         config: DialogConfig,
         group_id: int = 0,
     ) -> None:

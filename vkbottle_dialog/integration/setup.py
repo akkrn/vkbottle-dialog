@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Any
 
 from ..context.access_validator import DefaultAccessValidator
-from ..context.locks import LockRegistry
+from ..context.locks import LockRegistry, LockRegistryLike
 from ..context.memory import MemoryStorage
 from ..context.proxy import StorageProxy
 from ..dialog import Dialog
@@ -44,7 +44,7 @@ class SetupDeps:
         self,
         registry: DialogRegistry,
         proxy: StorageProxy,
-        locks: LockRegistry,
+        locks: LockRegistryLike,
         config: DialogConfig,
         bg_factory: BgManagerFactory,
         api: Any,
@@ -82,6 +82,7 @@ def setup_dialogs(
     stale_snackbar: str = "Окно устарело, начните заново",
     access_validator: Any = None,
     access_denied_snackbar: str | None = None,
+    locks: LockRegistryLike | None = None,
 ) -> BgManagerFactory:
     """Подключает диалоги к боту и возвращает BgManagerFactory для bg()
     из внешнего кода (крон, вебхуки и т.п.).
@@ -98,12 +99,17 @@ def setup_dialogs(
     используйте методы manager напрямую (update/switch_to/next/back/...),
     bg() — для других peer/пользователей. bg() на текущий стек изнутри
     того же хендлера не поддержан — коммит bg() может быть перезаписан
-    более поздним коммитом внешнего manager'а (потерянное обновление)."""
+    более поздним коммитом внешнего manager'а (потерянное обновление).
+
+    locks: None (дефолт) — внутрипроцессный LockRegistry, годится для
+    single-instance деплоя. Для нескольких инстансов передайте
+    RedisLockRegistry(redis) (context/redis_lock.py) — распределённый lock
+    с TTL и heartbeat-продлением на время удержания."""
     global _ACTIVE
     states_registry = StatesRegistry()
     registry = DialogRegistry(*dialogs, states_registry=states_registry)
     proxy = StorageProxy(storage or MemoryStorage(), states_registry)
-    locks = LockRegistry()
+    locks = locks or LockRegistry()
     config = DialogConfig(
         secret=payload_secret,
         global_getter=getter,

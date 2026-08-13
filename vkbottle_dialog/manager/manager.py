@@ -15,7 +15,7 @@ from ..api.entities import (
     Stack,
     StartMode,
 )
-from ..context.locks import LockRegistry
+from ..context.locks import LockRegistryLike
 from ..context.proxy import StorageProxy
 from ..exceptions import DialogConfigError, UnknownIntent
 from ..fsm import State
@@ -45,7 +45,7 @@ class ManagerImpl:
         registry: Any,
         proxy: StorageProxy,
         message_manager: MessageManager,
-        locks: LockRegistry,
+        locks: LockRegistryLike,
         config: DialogConfig,
         stack: Stack,
         context: Context | None,

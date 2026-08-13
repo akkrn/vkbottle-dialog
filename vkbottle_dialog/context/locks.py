@@ -1,7 +1,17 @@
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from typing import Protocol, runtime_checkable
+
+
+@runtime_checkable
+class LockRegistryLike(Protocol):
+    """Структурный интерфейс, которому удовлетворяют LockRegistry (single-instance,
+    дефолт) и RedisLockRegistry (context/redis_lock.py, мульти-инстанс)."""
+
+    def acquire(self, key: str) -> AbstractAsyncContextManager[None]: ...
 
 
 class LockRegistry:
@@ -17,8 +27,13 @@ class LockRegistry:
         self._waiters: dict[str, int] = {}
         self._owners: dict[str, asyncio.Task] = {}
 
+    def is_held_by_current_task(self, key: str) -> bool:
+        """True, если текущая asyncio-задача уже держит lock на key — следующий
+        acquire(key) пройдёт реентерабельно, без нового захвата."""
+        return self._owners.get(key) is asyncio.current_task()
+
     @asynccontextmanager
-    async def acquire(self, key: str):
+    async def acquire(self, key: str) -> AsyncIterator[None]:
         current = asyncio.current_task()
         assert current is not None, "LockRegistry.acquire вне asyncio-задачи"
         if self._owners.get(key) is current:

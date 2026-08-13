@@ -8,7 +8,7 @@ from typing import Any
 from vkbottle.dispatch.views.abc import ABCView
 
 from ..api.entities import PEER_ID_OFFSET, EventContext
-from ..context.locks import LockRegistry
+from ..context.locks import LockRegistryLike
 from ..context.proxy import StorageProxy
 from ..exceptions import (
     CancelEventProcessing,
@@ -70,7 +70,7 @@ class DialogView(ABCView):
         *,
         registry: Any,
         proxy: StorageProxy,
-        locks: LockRegistry,
+        locks: LockRegistryLike,
         config: DialogConfig,
         bg_factory: Any,
         on_unknown_intent: Any = None,
