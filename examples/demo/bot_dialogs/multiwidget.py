@@ -18,8 +18,8 @@ multiwidget_dialog = Dialog(
             "Multiselect исключён: не влезает в бюджет 10 кнопок."
         ),
         Checkbox(
-            Const("✓ Опция"),
-            Const("Опция"),
+            Const("✓ Опция включена"),
+            Const("Опция выключена"),
             id="mw_chk",
         ),
         Radio(
