@@ -1,5 +1,9 @@
 # vkbottle-dialog
 
+[![CI](https://github.com/akkrn/vkbottle-dialog/actions/workflows/ci.yml/badge.svg)](https://github.com/akkrn/vkbottle-dialog/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/vkbottle-dialog)](https://pypi.org/project/vkbottle-dialog/)
+[![Python](https://img.shields.io/pypi/pyversions/vkbottle-dialog)](https://pypi.org/project/vkbottle-dialog/)
+
 Декларативные диалоги для VK-ботов поверх [vkbottle](https://github.com/vkbottle/vkbottle) — порт
 [aiogram-dialog](https://github.com/Tishka17/aiogram_dialog) на VK.
 
