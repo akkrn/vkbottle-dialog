@@ -13,7 +13,7 @@ from vkbottle import Bot
 
 from vkbottle_dialog import DialogManager, StartMode, setup_dialogs
 from vkbottle_dialog.integration import NotInDialog
-from vkbottle_dialog.storage import MemoryStorage
+from vkbottle_dialog.storage import MemoryStorage, RedisStorage
 
 from .bot_dialogs import ALL_DIALOGS
 from .bot_dialogs.states import Main
@@ -23,12 +23,23 @@ async def on_unknown_intent(event, dialog_manager: DialogManager) -> None:
     await dialog_manager.start(Main.MAIN, mode=StartMode.RESET_STACK)
 
 
+def build_storage() -> MemoryStorage | RedisStorage:
+    url = os.environ.get("REDIS_URL")
+    if not url:
+        return MemoryStorage()
+    # redis — опциональный extra (pip install vkbottle-dialog[redis]); импорт
+    # намеренно здесь, а не наверху модуля, чтобы демо без REDIS_URL не тянуло пакет
+    from redis.asyncio import Redis
+
+    return RedisStorage(Redis.from_url(url))
+
+
 def build_bot(token: str) -> Bot:
     bot = Bot(token)
     setup_dialogs(
         bot,
         *ALL_DIALOGS,
-        storage=MemoryStorage(),
+        storage=build_storage(),
         on_unknown_intent=on_unknown_intent,
     )
 
