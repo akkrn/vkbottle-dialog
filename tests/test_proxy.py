@@ -92,3 +92,29 @@ async def test_load_stack_without_last_media_key(proxy):
 
     stack = await proxy.load_stack(KEY)
     assert stack.last_media_key is None
+
+
+async def test_roundtrip_last_kb_hash(proxy):
+    stack = await proxy.load_stack(KEY)
+    stack.last_cmid = 42
+    stack.last_kb_hash = "abc123"
+    await proxy.save(stack)
+
+    stack2 = await proxy.load_stack(KEY)
+    assert stack2.last_kb_hash == "abc123"
+
+
+async def test_load_stack_without_last_kb_hash(proxy):
+    raw = {
+        "intents": [],
+        "last_cmid": 42,
+        "last_message_sent_at": None,
+        "last_keyboard_kind": KeyboardKind.NONE.value,
+        "last_render_hash": None,
+        "last_text": None,
+        "inline_supported": None,
+    }
+    await proxy._storage.set(KEY, raw)
+
+    stack = await proxy.load_stack(KEY)
+    assert stack.last_kb_hash is None

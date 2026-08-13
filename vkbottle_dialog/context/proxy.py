@@ -27,6 +27,7 @@ class StorageProxy:
             last_text=raw.get("last_text"),
             inline_supported=raw["inline_supported"],
             last_media_key=raw.get("last_media_key"),
+            last_kb_hash=raw.get("last_kb_hash"),
         )
 
     async def load_context(self, intent_id: str) -> Context:
@@ -89,4 +90,5 @@ def _dump_stack(stack: Stack) -> dict[str, Any]:
         "last_text": stack.last_text,
         "inline_supported": stack.inline_supported,
         "last_media_key": stack.last_media_key,
+        "last_kb_hash": stack.last_kb_hash,
     }

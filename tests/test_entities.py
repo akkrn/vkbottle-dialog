@@ -78,3 +78,22 @@ def test_render_hash_changes():
             peer_id=9, text="a", keyboard=None, keyboard_kind=KeyboardKind.NONE
         ).render_hash()
     )
+
+
+def test_kb_hash_ignores_text_and_media():
+    kb = '{"one_time":false,"inline":false,"buttons":[]}'
+    m1 = NewMessage(peer_id=1, text="a", keyboard=kb, keyboard_kind=KeyboardKind.TEXT)
+    m2 = NewMessage(peer_id=1, text="b", keyboard=kb, keyboard_kind=KeyboardKind.TEXT)
+    assert m1.kb_hash() == m2.kb_hash()
+    m3 = NewMessage(peer_id=1, text="a", keyboard=kb + "x", keyboard_kind=KeyboardKind.TEXT)
+    assert m1.kb_hash() != m3.kb_hash()
+    none_kb = NewMessage(peer_id=1, text="a", keyboard=None, keyboard_kind=KeyboardKind.NONE)
+    empty_kb = NewMessage(peer_id=1, text="a", keyboard="", keyboard_kind=KeyboardKind.NONE)
+    assert none_kb.kb_hash() == empty_kb.kb_hash()
+
+
+def test_stack_kb_hash_cleared():
+    stack = make_stack()
+    stack.last_kb_hash = "abc123"
+    stack.clear_message()
+    assert stack.last_kb_hash is None

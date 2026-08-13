@@ -85,6 +85,7 @@ class Stack:
     last_text: str | None = None
     inline_supported: bool | None = None
     last_media_key: str | None = None
+    last_kb_hash: str | None = None
 
     def push(self, state: State, start_data: Any) -> Context:
         if len(self.intents) >= STACK_LIMIT:
@@ -111,6 +112,7 @@ class Stack:
         self.last_render_hash = None
         self.last_text = None
         self.last_media_key = None
+        self.last_kb_hash = None
 
 
 @dataclass
@@ -167,3 +169,6 @@ class NewMessage:
         )
         raw = f"{self.text}\x00{self.keyboard or ''}\x00{media_key}"
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+    def kb_hash(self) -> str:
+        return hashlib.sha256((self.keyboard or "").encode()).hexdigest()[:16]
