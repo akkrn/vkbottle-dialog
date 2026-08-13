@@ -26,7 +26,7 @@ from vkbottle_dialog.widgets.text import Const, Format
 from .common import MAIN_MENU_BUTTON, nav_row
 from .states import CalendarSG
 
-DEMO_CAL_CONFIG = CalendarConfig(days_per_page=3)
+DEMO_CAL_CONFIG = CalendarConfig(days_per_page=3, months_per_page=4, years_per_page=4)
 
 
 async def on_date_click(event, managed, manager, selected: date) -> None:
