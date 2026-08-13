@@ -89,10 +89,12 @@ class MessageManager:
         # Нижняя (TEXT) клавиатура не редактируется через messages.edit — она
         # общая на переписку и уже стоит на устройстве; передаём её здесь
         # только когда она ставится ВПЕРВЫЕ этим редактированием (переход
-        # с другого вида клавиатуры), а не когда она и так уже TEXT.
+        # с другого вида клавиатуры) или ИЗМЕНИЛАСЬ (иначе новая клавиатура
+        # никогда не применится), а не когда она и так уже TEXT и не менялась.
         skip_keyboard = (
             new.keyboard_kind is KeyboardKind.TEXT
             and stack.last_keyboard_kind is KeyboardKind.TEXT
+            and stack.last_kb_hash == new.kb_hash()
         )
         if new.keyboard is not None and not skip_keyboard:
             params["keyboard"] = new.keyboard  # всегда с клавиатурой — иначе VK сотрёт

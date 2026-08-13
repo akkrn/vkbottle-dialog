@@ -169,6 +169,25 @@ async def test_text_kbd_unchanged_message_new_still_deletes(fake_api):
     assert len(fake_api.sent("messages.send")) == 1
 
 
+async def test_explicit_edit_text_kbd_changed_includes_keyboard(fake_api):
+    # ShowMode.EDIT явно запрошен вызывающим кодом (update/switch_to/
+    # Button(show_mode=...)), а не выведен AUTO — клавиатура ИЗМЕНИЛАСЬ
+    # (last_kb_hash не совпадает с новой), значит её обязательно нужно
+    # передать в messages.edit, иначе новая клавиатура никогда не применится.
+    mm = MessageManager(fake_api)
+    stack = fresh_stack(
+        last_cmid=50,
+        last_message_sent_at=NOW - 100,
+        last_keyboard_kind=KeyboardKind.TEXT,
+        last_kb_hash="different-hash",
+    )
+    msg = new_msg(kb=TEXT_KB, kind=KeyboardKind.TEXT, mode=ShowMode.EDIT)
+    await mm.show_message(msg, stack, trigger="message_event", now=NOW)
+    edits = fake_api.sent("messages.edit")
+    assert len(edits) == 1 and edits[0].get("keyboard") == TEXT_KB
+    assert stack.last_kb_hash == msg.kb_hash()
+
+
 async def test_remove_kbd(fake_api):
     mm = MessageManager(fake_api)
     stack = fresh_stack(
