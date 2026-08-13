@@ -22,7 +22,7 @@ def switch_getter(dialog_manager, **kwargs) -> dict:
 switch_dialog = Dialog(
     Window(
         Const("🔢 Мастер из 3 шагов"),
-        Const("Это окно 1 из 3. Введите данные в следующих окнах."),
+        Const("Это окно 1 из 3. Выберите опции на следующем шаге."),
         Next(),
         nav_row(),
         state=Switch.MAIN,
