@@ -109,25 +109,44 @@ class MessageManager:
         """(template JSON | None, failed) — собирает VK carousel-template из
         CarouselSpec: photo резолвится через тот же MediaResolver, что и
         обычное медиа окна (attachment -> photo_id хелпером
-        attachment_to_photo_id). failed=True только если попытка резолва
-        ДЕЙСТВИТЕЛЬНО провалилась (resolve() вернул None) — нет резолвера
-        это конфигурационный выбор, а не сбой (симметрично _resolve_media);
-        элемент уйдёт без photo_id — деградация как у обычного медиа,
-        насколько это ломает VK-требование структурной униформности
-        карусели — smoke §7."""
+        attachment_to_photo_id).
+
+        VK требует СТРУКТУРНОЙ униформности элементов: все либо с photo_id,
+        либо все без — иначе ошибка 100 "element[i] has different content".
+        Наличие photo у элементов проверяется на уровне CarouselSpec
+        (Carousel.render_carousel), но РЕЗОЛВ фото может провалиться лишь у
+        части элементов (сеть/аплоад) — тогда шлём template БЕЗ фото у ВСЕХ
+        (единообразная деградация), а не смешанный. failed=True в этом
+        случае — маркер render_hash против анти-локаута (как у _resolve_media),
+        чтобы следующий идентичный рендер не считался no-op."""
         spec: CarouselSpec | None = new.carousel
         if spec is None:
             return None, False
-        failed = False
-        elements: list[dict] = []
+        photo_ids: list[str | None] = []
         for element in spec.elements:
-            doc: dict = {"title": element.title, "description": element.description}
             if element.photo is not None and self._media_resolver is not None:
                 attachment = await self._media_resolver.resolve(element.photo, new.peer_id)
-                if attachment is not None:
-                    doc["photo_id"] = attachment_to_photo_id(attachment)
-                else:
-                    failed = True
+                photo_ids.append(
+                    attachment_to_photo_id(attachment) if attachment is not None else None
+                )
+            else:
+                photo_ids.append(None)
+        wants_photo = self._media_resolver is not None and any(
+            e.photo is not None for e in spec.elements
+        )
+        resolved_all = all(pid is not None for pid in photo_ids)
+        use_photo = wants_photo and resolved_all
+        failed = wants_photo and not resolved_all
+        if failed:
+            logger.warning(
+                "Carousel: photo резолвнулось не у всех элементов — шлём без фото "
+                "у всех (VK требует униформности, иначе ошибка 100)"
+            )
+        elements: list[dict] = []
+        for element, pid in zip(spec.elements, photo_ids, strict=True):
+            doc: dict = {"title": element.title, "description": element.description}
+            if use_photo and pid is not None:
+                doc["photo_id"] = pid
             if element.buttons:
                 doc["buttons"] = [_carousel_button_doc(b) for b in element.buttons]
             if element.action is not None:

@@ -291,6 +291,29 @@ async def test_carousel_send_never_includes_keyboard(fake_api):
     assert "keyboard" not in sent
 
 
+async def test_carousel_partial_photo_resolution_drops_all_photos(fake_api):
+    # VK требует униформности: если фото резолвнулось не у всех элементов,
+    # шлём template БЕЗ фото у ВСЕХ, а не смешанный (иначе ошибка 100
+    # "element[i] has different content").
+    class PartialResolver:
+        def __init__(self):
+            self.n = 0
+
+        async def resolve(self, media, peer_id):
+            self.n += 1
+            return None if self.n == 2 else "photo-100_200"
+
+    mm = MessageManager(fake_api, media_resolver=PartialResolver())
+    stack = fresh_stack()
+    msg = carousel_msg(photo=MediaAttachment(attachment="photo1_1"), n=3)
+    await mm.show_message(msg, stack, trigger="message_new", now=NOW)
+    template = json.loads(fake_api.sent("messages.send")[0]["template"])
+    assert all("photo_id" not in el for el in template["elements"])
+    # failed-маркер меняет render_hash (анти-локаут — следующий идентичный
+    # рендер не будет ошибочно пропущен как no-op).
+    assert stack.last_render_hash == msg.render_hash(None, "carousel:failed")
+
+
 async def test_carousel_photo_resolved_to_photo_id(fake_api):
     resolver, up = make_resolver()
     mm = MessageManager(fake_api, media_resolver=resolver)
