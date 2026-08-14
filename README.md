@@ -221,6 +221,12 @@ git clone https://github.com/akkrn/vkbottle-dialog && cd vkbottle-dialog && uv s
 VK_TOKEN=<ключ_доступа_сообщества> python -m examples.demo.bot
 ```
 
+**Опциональные env:**
+- `REDIS_URL=redis://127.0.0.1:6379/0` — состояние диалогов в Redis (extra `[redis]`), переживает
+  рестарт бота. Без него — `MemoryStorage` (всё теряется при перезапуске).
+- `DEMO_ADMIN_IDS=12345,67890` — включает демо-валидатор доступа (секция «Доступ»): в беседах бот
+  отвечает только этим VK user_id. Без переменной валидатор не подключается — бот работает везде.
+
 **systemd-юнит** (пример, `/etc/systemd/system/vkd-demo.service`; `/opt/vkbottle-dialog` — клон
 репозитория из шага выше, с виртуальным окружением `.venv`, созданным `uv sync`):
 
