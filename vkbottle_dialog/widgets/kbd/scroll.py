@@ -118,8 +118,12 @@ def sync_scroll(*scroll_ids: str) -> Callable:
     async def on_page_changed(event: Any, widget: Any, manager: Any, page: int) -> None:
         for sid in scroll_ids:
             target = manager.find_scroll(sid)
-            if target is not widget:
-                target_ctx = manager.current_context()
-                target_ctx.widget_data[sid] = int(page)
+            if target is not None and target is not widget:
+                # через set_page, а не widget_data[sid] = int(page) напрямую —
+                # ListGroup переопределяет set_page (страница живёт под
+                # widget_data[sid][""]["_page"], не int в widget_data[sid]);
+                # прямая запись затёрла бы dict строк ListGroup'а int'ом и
+                # следующий get_page упал бы AttributeError (.setdefault на int).
+                await target.set_page(manager, page)
 
     return on_page_changed

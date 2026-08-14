@@ -4,6 +4,8 @@ from vkbottle_dialog.exceptions import DialogConfigError
 from vkbottle_dialog.fsm import State, StatesGroup
 from vkbottle_dialog.widgets.kbd import (
     Button,
+    Checkbox,
+    ListGroup,
     NextPage,
     ScrollingGroup,
     StubScroll,
@@ -68,6 +70,39 @@ async def test_sync_scroll(fake_manager_factory):
     handler = sync_scroll("a", "b")
     await handler(None, a, m, 2)
     assert b.get_page(m) == 2
+
+
+async def test_sync_scroll_targeting_list_group_does_not_corrupt_row_state(fake_manager_factory):
+    # FIX 3: sync_scroll раньше писало widget_data[sid] = int(page) напрямую,
+    # затирая dict строк ListGroup'а ({item_id: {...}}) целым числом — следующий
+    # get_page ListGroup'а падал AttributeError (.setdefault на int), а
+    # состояние отмеченных строк терялось безвозвратно. Через target.set_page
+    # (переопределённый ListGroup'ом) страница живёт отдельно от строк.
+    m = fake_manager_factory(SG.a)
+    lg = ListGroup(
+        Checkbox(Const("[x]"), Const("[ ]"), id="chk"),
+        id="lg",
+        item_id_getter=lambda item: item["id"],
+        items="items",
+        page_size=1,
+    )
+    items = [{"id": "1"}, {"id": "2"}]
+    await lg.render_keyboard({"items": items}, m)  # прогреваем widget_data строк
+    await lg.process_callback("lg:1:chk", m)  # чекбокс строки "1" отмечен
+    assert m.current_context().widget_data["lg"]["1"]["chk"] is True
+
+    src = StubScroll(id="src", pages="p")
+    m.find_scroll = lambda sid: {"src": src, "lg": lg}[sid]
+    handler = sync_scroll("src", "lg")
+    await handler(None, src, m, 1)  # синхронизируем страницу "lg" на 1
+
+    # страница сдвинулась через set_page (не корраптит dict строк)
+    assert lg.get_page(m) == 1
+    # состояние отмеченной строки "1" пережило синхронизацию
+    assert m.current_context().widget_data["lg"]["1"]["chk"] is True
+    # рендер после синхронизации не падает (регрессия: int(dict) TypeError)
+    kb = await lg.render_keyboard({"items": items}, m)
+    assert kb  # страница 1 отрендерилась (не упала)
 
 
 async def test_malformed_scrolling_group_callback(fake_manager_factory):
