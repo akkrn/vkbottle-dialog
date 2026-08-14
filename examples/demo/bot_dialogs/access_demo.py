@@ -20,14 +20,19 @@ setup_dialogs (см. bot.py) и решает это для КАЖДОГО соб
 это выглядит так: меню открывается, но любой клик по нему молча
 игнорируется (тихий отказ — access_denied_snackbar по умолчанию не задан)."""
 
+import os
+
 from vkbottle_dialog import Dialog, Window
 from vkbottle_dialog.widgets.text import Const
 
 from .common import nav_row
 from .states import AccessDemo
 
-# Замените на реальные VK user_id администраторов бота.
-ADMIN_IDS = {1, 2, 3}
+# VK user_id администраторов бота: задаётся через env DEMO_ADMIN_IDS
+# (через запятую, напр. DEMO_ADMIN_IDS=12345,67890) — иначе заглушка {1,2,3},
+# при которой любой клик в беседе молча игнорируется (см. docstring). Для
+# живого смоука в беседе впишите СВОЙ id, иначе бот не будет реагировать.
+ADMIN_IDS = {int(x) for x in os.environ.get("DEMO_ADMIN_IDS", "1,2,3").split(",") if x.strip()}
 
 
 class AdminOnlyInChatValidator:
