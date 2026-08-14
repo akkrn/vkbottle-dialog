@@ -1,8 +1,10 @@
 import asyncio
+import logging
 
 import fakeredis.aioredis
+import pytest
 
-from vkbottle_dialog.context.redis_lock import _RENEW_SCRIPT, RedisLockRegistry
+from vkbottle_dialog.context.redis_lock import _RELEASE_SCRIPT, _RENEW_SCRIPT, RedisLockRegistry
 
 
 async def test_mutual_exclusion_across_instances():
@@ -116,6 +118,55 @@ async def test_jitter_varies_retry_delays(monkeypatch):
     assert len(set(delays_seen)) > 1  # не константа — джиттер применяется
     lo, hi = 0.02 * 0.5, 0.02 * 1.5
     assert all(lo <= d <= hi for d in delays_seen)
+
+
+async def test_renew_returning_zero_logs_warning(caplog):
+    # FIX 4: если _RENEW_SCRIPT вернул 0 (ключ уже не наш — истёк и перехвачен
+    # другим инстансом), это раньше проходило молча (тихий split-brain) —
+    # теперь обязана появиться warning-строка.
+    r = fakeredis.aioredis.FakeRedis()
+    ttl = 0.05
+    reg = RedisLockRegistry(r, ttl=ttl, retry_interval=0.01)
+
+    holding = asyncio.Event()
+    release = asyncio.Event()
+
+    async def hold():
+        async with reg.acquire("k"):
+            holding.set()
+            await release.wait()
+
+    with caplog.at_level(logging.WARNING, logger="vkbottle_dialog"):
+        task = asyncio.create_task(hold())
+        await holding.wait()
+        # симулируем перехват ключа другим инстансом до следующего renew
+        await r.set("vkd:lock:k", "someone-else-token")
+        await asyncio.sleep(ttl / 3 + 0.05)
+        release.set()
+        await task
+
+    assert any("renew got 0" in rec.message for rec in caplog.records)
+
+
+async def test_release_eval_failure_does_not_mask_critical_section_exception(monkeypatch):
+    # FIX 4: если redis недоступен на release (eval кидает), это раньше
+    # пробрасывалось из finally и маскировало реальное исключение критической
+    # секции — теперь release-ошибка только логируется, TTL освобождает lock позже.
+    r = fakeredis.aioredis.FakeRedis()
+    reg = RedisLockRegistry(r, ttl=5, retry_interval=0.01)
+
+    real_eval = r.eval
+
+    async def flaky_eval(script, numkeys, *args, **kwargs):
+        if script == _RELEASE_SCRIPT:
+            raise ConnectionError("redis down on release")
+        return await real_eval(script, numkeys, *args, **kwargs)
+
+    monkeypatch.setattr(r, "eval", flaky_eval)
+
+    with pytest.raises(RuntimeError, match="boom in critical section"):
+        async with reg.acquire("k"):
+            raise RuntimeError("boom in critical section")
 
 
 async def test_token_unique_per_acquire():

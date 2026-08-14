@@ -79,7 +79,13 @@ class RedisLockRegistry:
                 # критической секции маскируется исключением из heartbeat
                 with contextlib.suppress(BaseException):
                     await heartbeat
-                await self._redis.eval(_RELEASE_SCRIPT, 1, rkey, token)
+                try:
+                    await self._redis.eval(_RELEASE_SCRIPT, 1, rkey, token)
+                except Exception as e:
+                    # redis недоступен на release — не даём этому маскировать
+                    # исключение критической секции (если оно есть); TTL всё
+                    # равно освободит lock, просто позже
+                    logger.warning("redis lock release failed for %s: %r", rkey, e)
 
     async def _acquire_redis(self, rkey: str, token: str) -> None:
         px = int(self._ttl * 1000)
@@ -97,7 +103,13 @@ class RedisLockRegistry:
             while True:
                 await asyncio.sleep(interval)
                 try:
-                    await self._redis.eval(_RENEW_SCRIPT, 1, rkey, token, px)
+                    renewed = await self._redis.eval(_RENEW_SCRIPT, 1, rkey, token, px)
+                    if not renewed:
+                        # ключ уже не наш — истёк по TTL и перехвачен другим
+                        # инстансом, пока мы держали lock (split-brain): молча
+                        # продолжать heartbeat бессмысленно, но явный сигнал
+                        # нужен, иначе это тихо проходит незамеченным
+                        logger.warning("redis lock lost (renew got 0) for %s", rkey)
                 except Exception as e:
                     # транзиентный сбой продления не должен насовсем убивать
                     # heartbeat на весь остаток удержания lock'а — пробуем снова
