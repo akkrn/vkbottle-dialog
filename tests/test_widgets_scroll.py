@@ -72,6 +72,27 @@ async def test_sync_scroll(fake_manager_factory):
     assert b.get_page(m) == 2
 
 
+async def test_sync_scroll_bidirectional_does_not_recurse_infinitely(fake_manager_factory):
+    # Регрессия на FIX 3: set_page теперь сам зовёт on_page_changed (раньше
+    # sync_scroll писало widget_data напрямую, колбэк вообще не срабатывал) —
+    # наивная взаимная синхронизация (a зеркалит на b, b зеркалит на a) без
+    # guard'а на "страница уже такая" рекурсировала бы бесконечно
+    # (RecursionError). get_page(manager) != page в sync_scroll делает
+    # зеркальный хоп no-op'ом, как только у цели уже нужная страница (а у a
+    # она уже выставлена до срабатывания его собственного колбэка) —
+    # рекурсия конечна: a.set_page -> b.set_page -> (a уже на этой странице,
+    # стоп).
+    m = fake_manager_factory(SG.a)
+    a = StubScroll(id="a", pages="p", on_page_changed=sync_scroll("b"))
+    b = StubScroll(id="b", pages="p", on_page_changed=sync_scroll("a"))
+    m.find_scroll = lambda sid: {"a": a, "b": b}[sid]
+
+    await a.set_page(m, 3)  # не должно упасть RecursionError
+
+    assert a.get_page(m) == 3
+    assert b.get_page(m) == 3
+
+
 async def test_sync_scroll_targeting_list_group_does_not_corrupt_row_state(fake_manager_factory):
     # FIX 3: sync_scroll раньше писало widget_data[sid] = int(page) напрямую,
     # затирая dict строк ListGroup'а ({item_id: {...}}) целым числом — следующий

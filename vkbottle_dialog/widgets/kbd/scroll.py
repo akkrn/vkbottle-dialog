@@ -118,7 +118,15 @@ def sync_scroll(*scroll_ids: str) -> Callable:
     async def on_page_changed(event: Any, widget: Any, manager: Any, page: int) -> None:
         for sid in scroll_ids:
             target = manager.find_scroll(sid)
-            if target is not None and target is not widget:
+            # get_page(manager) != page, а не "target is not widget" — тот же
+            # guard заодно останавливает mirror-рекурсию: два scroll'а,
+            # синхронизированные друг на друга (sync_scroll("b") на a И
+            # sync_scroll("a") на b), иначе зовут set_page друг у друга
+            # бесконечно (set_page теперь сам зовёт on_page_changed — см.
+            # выше). a уже применил свою страницу ДО того, как сработал этот
+            # колбэк, поэтому mirror-хоп на a видит page == get_page(manager)
+            # и не идёт дальше — рекурсия конечна.
+            if target is not None and target.get_page(manager) != page:
                 # через set_page, а не widget_data[sid] = int(page) напрямую —
                 # ListGroup переопределяет set_page (страница живёт под
                 # widget_data[sid][""]["_page"], не int в widget_data[sid]);
