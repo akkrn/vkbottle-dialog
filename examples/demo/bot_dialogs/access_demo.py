@@ -29,10 +29,11 @@ from .common import nav_row
 from .states import AccessDemo
 
 # VK user_id администраторов бота: задаётся через env DEMO_ADMIN_IDS
-# (через запятую, напр. DEMO_ADMIN_IDS=12345,67890) — иначе заглушка {1,2,3},
-# при которой любой клик в беседе молча игнорируется (см. docstring). Для
-# живого смоука в беседе впишите СВОЙ id, иначе бот не будет реагировать.
-ADMIN_IDS = {int(x) for x in os.environ.get("DEMO_ADMIN_IDS", "1,2,3").split(",") if x.strip()}
+# (через запятую, напр. DEMO_ADMIN_IDS=12345,67890). Пусто по умолчанию —
+# тогда валидатор в bot.py НЕ подключается и бот работает везде (иначе весь
+# бот в беседах был бы мёртв, т.к. валидатор молча отклоняет всех не из
+# списка). Задайте свой id, чтобы увидеть валидатор в действии в беседе.
+ADMIN_IDS = {int(x) for x in os.environ.get("DEMO_ADMIN_IDS", "").split(",") if x.strip()}
 
 
 class AdminOnlyInChatValidator:

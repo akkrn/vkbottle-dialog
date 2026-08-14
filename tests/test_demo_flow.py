@@ -378,13 +378,16 @@ async def test_access_demo_admin_only_in_chat(fake_api):
     одинаково: хук валидатора применяется только к УЖЕ существующему стеку
     (см. docstring access_demo.py про тайминг) — это тоже часть честной
     демонстрации, а не недосмотр теста."""
+    # свой явный набор админов — модульный ADMIN_IDS теперь env-driven и по
+    # умолчанию пуст (валидатор в bot.py подключается только при DEMO_ADMIN_IDS).
+    admin_ids = {111, 222}
     bot = Bot("token")
     setup_dialogs(
         bot,
         *ALL_DIALOGS,
         storage=MemoryStorage(),
         api=fake_api,
-        access_validator=AdminOnlyInChatValidator(ADMIN_IDS),
+        access_validator=AdminOnlyInChatValidator(admin_ids),
     )
 
     @bot.on.message(NotInDialog(), text="/start")
@@ -392,9 +395,9 @@ async def test_access_demo_admin_only_in_chat(fake_api):
         await dialog_manager.start(Main.MAIN, mode=StartMode.RESET_STACK)
 
     chat_peer = 2_000_000_001
-    admin_id = next(iter(ADMIN_IDS))
-    non_admin_id = max(ADMIN_IDS) + 1000
-    assert non_admin_id not in ADMIN_IDS
+    admin_id = next(iter(admin_ids))
+    non_admin_id = max(admin_ids) + 1000
+    assert non_admin_id not in admin_ids
 
     # админ: /start + клик обрабатываются как обычно
     await bot.router.route(raw_message_new("/start", peer=chat_peer, from_id=admin_id), fake_api)

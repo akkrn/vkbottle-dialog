@@ -37,14 +37,17 @@ def build_storage() -> MemoryStorage | RedisStorage:
 
 def build_bot(token: str) -> Bot:
     bot = Bot(token)
+    # Валидатор доступа (секция «🔒 Доступ») подключаем ТОЛЬКО когда задан
+    # DEMO_ADMIN_IDS — иначе он молча отклонял бы всех в беседах и бот был бы
+    # там нерабочим из коробки. Без env бот работает везде, с env — admin-only
+    # в беседах (см. bot_dialogs/access_demo.py).
+    access_validator = AdminOnlyInChatValidator(ADMIN_IDS) if ADMIN_IDS else None
     setup_dialogs(
         bot,
         *ALL_DIALOGS,
         storage=build_storage(),
         on_unknown_intent=on_unknown_intent,
-        # секция «🔒 Доступ» (bot_dialogs/access_demo.py) — честная
-        # демонстрация кастомного валидатора, не user_ids-ограничения
-        access_validator=AdminOnlyInChatValidator(ADMIN_IDS),
+        access_validator=access_validator,
     )
 
     @bot.on.message(NotInDialog())
