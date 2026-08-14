@@ -1,25 +1,23 @@
 """Секция «Карусель»: 3-элементная VK-карусель товаров (title/description/
-photo + callback-кнопка «Выбрать» со снекбаром на элемент). Carousel рендерит
-не inline-клавиатуру, а template (спека §5) — окно занимает keyboard-слот
-целиком, поэтому нижняя навигация идёт отдельной callback-клавиатурой
-(TextKeyboardFactory), а не inline-кнопкой рядом с элементами.
+photo + callback-кнопки на элемент). Carousel рендерит не inline-клавиатуру,
+а template (спека §5) — и VK НЕ принимает keyboard вместе с template (ошибка
+100 «Only template or keyboard field should be specified»). Поэтому вся
+навигация живёт кнопками ВНУТРИ элементов карусели: на каждом товаре — «Выбрать»
+(снекбар) и «☰ Меню» (возврат в главное меню через Start). Структура элементов
+одинаковая (VK требует униформности), так что обе кнопки есть на каждом.
 
-Работает только в личных сообщениях: TextKeyboardFactory (нижняя навигация)
-в беседе поднимает DialogConfigError (см. window.py) — общая клавиатура на
-весь чат, точно так же, как секция «Нижняя клавиатура». Секция помечена
-«(ЛС)» и в тексте окна, и в главном меню."""
+Карусель работает и в личке, и в беседах — нижней клавиатуры больше нет, а
+template VK принимает в обоих контекстах."""
 
 from dataclasses import dataclass
 from pathlib import Path
 
 from vkbottle_dialog import Dialog, Window
-from vkbottle_dialog.widgets.kbd import Button, Carousel
-from vkbottle_dialog.widgets.markup import TextKeyboardFactory
+from vkbottle_dialog.widgets.kbd import Button, Carousel, Start
 from vkbottle_dialog.widgets.media import StaticMedia
 from vkbottle_dialog.widgets.text import Const, Format
 
-from .common import nav_row
-from .states import CarouselDemo
+from .states import CarouselDemo, Main
 
 MEDIA_DIR = Path(__file__).parent.parent / "media"
 
@@ -46,10 +44,9 @@ async def carousel_demo_getter(**kwargs) -> dict:
 carousel_demo_dialog = Dialog(
     Window(
         Const(
-            "🎠 Карусель (ЛС) — VK template, не inline-кнопки. Нижняя навигация — "
-            "callback-клавиатура (TextKeyboardFactory), потому что карусель "
-            "занимает keyboard-слот окна целиком. В беседе такое окно упадёт с "
-            "DialogConfigError — общая клавиатура на весь чат, только для ЛС."
+            "🎠 Карусель — VK template, не inline-кнопки. Навигация — кнопками "
+            "внутри карточек («☰ Меню»), потому что VK не принимает обычную "
+            "клавиатуру вместе с template. Работает и в ЛС, и в беседах."
         ),
         Carousel(
             id="car",
@@ -58,11 +55,12 @@ carousel_demo_dialog = Dialog(
             title=Format("{item.name}"),
             description=Format("{item.description}"),
             photo=StaticMedia(path=Format(str(MEDIA_DIR / "{item.photo}"))),
-            buttons=[Button(Const("Выбрать"), id="pick", snackbar="Товар выбран (демо)")],
+            buttons=[
+                Button(Const("Выбрать"), id="pick", snackbar="Товар выбран (демо)"),
+                Start(Const("☰ Меню"), id="menu", state=Main.MAIN),
+            ],
         ),
-        nav_row(),
         state=CarouselDemo.MAIN,
-        markup_factory=TextKeyboardFactory(button_type="callback"),
         getter=carousel_demo_getter,
     ),
 )

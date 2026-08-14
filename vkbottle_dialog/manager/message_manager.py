@@ -161,13 +161,6 @@ class MessageManager:
         # только когда она ставится ВПЕРВЫЕ этим редактированием (переход
         # с другого вида клавиатуры) или ИЗМЕНИЛАСЬ (иначе новая клавиатура
         # никогда не применится), а не когда она и так уже TEXT и не менялась.
-        skip_keyboard = (
-            new.keyboard_kind is KeyboardKind.TEXT
-            and stack.last_keyboard_kind is KeyboardKind.TEXT
-            and stack.last_kb_hash == new.kb_hash()
-        )
-        if new.keyboard is not None and not skip_keyboard:
-            params["keyboard"] = new.keyboard  # всегда с клавиатурой — иначе VK сотрёт
         attachment, failed = await self._resolve_media(new)
         if attachment is not None:
             params["attachment"] = attachment
@@ -175,7 +168,18 @@ class MessageManager:
             params["attachment"] = ""  # явная очистка — омит не очищает вложение
         template, carousel_failed = await self._resolve_carousel(new)
         if template is not None:
+            # VK: template и keyboard взаимоисключающи (ошибка 100) — при
+            # карусели клавиатуру не передаём (edit здесь только карусель->
+            # карусель, граница карусель<->окно уже ушла в delete+send выше).
             params["template"] = template
+        else:
+            skip_keyboard = (
+                new.keyboard_kind is KeyboardKind.TEXT
+                and stack.last_keyboard_kind is KeyboardKind.TEXT
+                and stack.last_kb_hash == new.kb_hash()
+            )
+            if new.keyboard is not None and not skip_keyboard:
+                params["keyboard"] = new.keyboard  # всегда с клавиатурой — иначе VK сотрёт
         try:
             await self._api.request("messages.edit", params)
         except VKAPIError as e:
@@ -209,14 +213,16 @@ class MessageManager:
             "disable_mentions": int(new.disable_mentions),
             "dont_parse_links": int(new.dont_parse_links),
         }
-        if new.keyboard is not None:
-            params["keyboard"] = new.keyboard
         attachment, failed = await self._resolve_media(new)
         if attachment is not None:
             params["attachment"] = attachment
         template, carousel_failed = await self._resolve_carousel(new)
         if template is not None:
+            # VK: template и keyboard взаимоисключающи (ошибка 100). Карусель
+            # занимает сообщение целиком — навигация живёт в кнопках элементов.
             params["template"] = template
+        elif new.keyboard is not None:
+            params["keyboard"] = new.keyboard
         response = await self._api.request("messages.send", params)
         item = response["response"][0]
         stack.last_cmid = item["conversation_message_id"]

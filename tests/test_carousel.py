@@ -1,5 +1,3 @@
-import json
-
 import pytest
 
 from vkbottle_dialog.api.entities import EventContext
@@ -212,27 +210,23 @@ async def test_window_render_puts_carousel_in_new_message(fake_manager_factory):
     assert msg.keyboard is None
 
 
-async def test_window_forbids_carousel_with_other_kbd_without_text_factory(fake_manager_factory):
+async def test_window_forbids_carousel_with_other_kbd(fake_manager_factory):
+    # VK не принимает keyboard вместе с template — карусель занимает
+    # сообщение целиком, любой соседний клавиатурный виджет запрещён.
     with pytest.raises(DialogConfigError):
         Window(make_carousel(), Button(Const("Далее"), id="next"), state=SG.a)
 
 
-async def test_window_allows_carousel_with_nav_under_text_factory(fake_manager_factory):
-    m = fake_manager_factory(SG.a)
-    m._data = {"items": ITEMS}
-    win = Window(
-        make_carousel(),
-        Button(Const("Далее"), id="next"),
-        state=SG.a,
-        markup_factory=TextKeyboardFactory(button_type="callback"),
-    )
-
-    msg = await win.render(m, ev(), m.current_context().intent_id, None, InlineKeyboardFactory())
-
-    assert msg.carousel is not None
-    assert msg.keyboard is not None
-    doc = json.loads(msg.keyboard)
-    assert doc["inline"] is False  # нижняя (TEXT) навигация, не inline
+async def test_window_forbids_carousel_with_nav_even_under_text_factory(fake_manager_factory):
+    # markup_factory=TextKeyboardFactory больше не спасает: template ⊥ keyboard
+    # (ошибка 100) — навигация обязана жить в кнопках элементов карусели.
+    with pytest.raises(DialogConfigError):
+        Window(
+            make_carousel(),
+            Button(Const("Далее"), id="next"),
+            state=SG.a,
+            markup_factory=TextKeyboardFactory(button_type="callback"),
+        )
 
 
 def test_window_forbids_more_than_one_carousel():

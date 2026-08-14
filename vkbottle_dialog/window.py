@@ -63,11 +63,12 @@ class Window:
         if not carousels:
             return None
         carousel = carousels[0]
-        if len(flat) > 1 and not isinstance(self._markup_factory, TextKeyboardFactory):
+        if len(flat) > 1:
             raise DialogConfigError(
                 "Carousel нельзя сочетать с другими клавиатурными виджетами в том же "
-                "окне без markup_factory=TextKeyboardFactory(...) для нижней навигации "
-                "(спека §5: карусель занимает keyboard-слот целиком)"
+                "окне: VK не принимает keyboard вместе с template (ошибка 100 «Only "
+                "template or keyboard field should be specified»). Навигацию делайте "
+                "кнопками ВНУТРИ элементов карусели (Carousel(buttons=[Start(...), ...]))"
             )
         return carousel
 

@@ -294,14 +294,15 @@ async def walk_list_demo(bot, api, main_kb: dict) -> dict:
 
 
 async def walk_carousel_demo(bot, api) -> dict:
-    """Carousel рендерит payload элементов в template, а не в keyboard
-    (спека §5) — кликаем callback-кнопку «Выбрать» первого элемента через
-    отдельный разбор template, затем возвращаем нижнюю (TEXT) навигацию,
-    как обычно, через click()."""
+    """Carousel рендерит и контент, и навигацию в template, а не в keyboard:
+    VK не принимает keyboard вместе с template (ошибка 100). Кликаем «Выбрать»
+    первого элемента (снекбар — окно не меняется), затем возвращаем payload
+    кнопки «☰ Меню» из того же template для возврата в главное меню."""
     tpl = rendered_template(api)
     tpl_payloads = carousel_button_payloads(tpl)
     pick_payload = next(p for cd, p in tpl_payloads.items() if cd.endswith(":pick"))
-    return await click(bot, api, pick_payload)
+    await click(bot, api, pick_payload)
+    return next(p for cd, p in tpl_payloads.items() if cd.endswith(":menu"))
 
 
 async def test_walk_every_demo_section_and_subsection(demo_bot, fake_api):
@@ -358,8 +359,9 @@ async def test_walk_every_demo_section_and_subsection(demo_bot, fake_api):
             section_kb = await walk_list_demo(bot, api, section_kb)
             main_menu_payload = button_payloads(section_kb)["__main__"]
         elif section_id == "to_carousel":
-            section_kb = await walk_carousel_demo(bot, api)
-            main_menu_payload = button_payloads(section_kb)["__main__"]
+            # навигация карусели живёт в кнопках элементов (template), а не в
+            # keyboard — walk возвращает payload «☰ Меню» напрямую.
+            main_menu_payload = await walk_carousel_demo(bot, api)
         else:
             main_menu_payload = button_payloads(section_kb)["__main__"]
 

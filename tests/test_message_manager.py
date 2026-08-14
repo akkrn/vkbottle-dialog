@@ -277,6 +277,20 @@ async def test_first_send_with_carousel_includes_template(fake_api):
     assert stack.last_had_carousel is True
 
 
+async def test_carousel_send_never_includes_keyboard(fake_api):
+    # VK отвергает keyboard вместе с template (ошибка 100) — даже если окно
+    # каким-то образом отдало keyboard, при карусели он не должен уйти.
+    mm = MessageManager(fake_api)
+    stack = fresh_stack()
+    msg = carousel_msg()
+    msg.keyboard = '{"inline":true,"buttons":[]}'
+    msg.keyboard_kind = KeyboardKind.INLINE
+    await mm.show_message(msg, stack, trigger="message_new", now=NOW)
+    sent = fake_api.sent("messages.send")[0]
+    assert "template" in sent
+    assert "keyboard" not in sent
+
+
 async def test_carousel_photo_resolved_to_photo_id(fake_api):
     resolver, up = make_resolver()
     mm = MessageManager(fake_api, media_resolver=resolver)
