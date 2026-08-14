@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
-from ..api.entities import Context, ShowMode, Stack, StartMode
+from ..api.entities import AccessSettings, Context, ShowMode, Stack, StartMode
 from .manager import DialogConfig
 
 
@@ -106,8 +106,11 @@ class SubManager:
         data: Any = None,
         mode: StartMode = StartMode.NORMAL,
         show_mode: ShowMode | None = None,
+        access_settings: AccessSettings | None = None,
     ) -> None:
-        await self.manager.start(state, data=data, mode=mode, show_mode=show_mode)
+        await self.manager.start(
+            state, data=data, mode=mode, show_mode=show_mode, access_settings=access_settings
+        )
 
     async def switch_to(self, state: Any, show_mode: ShowMode | None = None) -> None:
         await self.manager.switch_to(state, show_mode)

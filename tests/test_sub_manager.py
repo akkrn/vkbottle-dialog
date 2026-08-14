@@ -68,8 +68,8 @@ class FakeManager:
     async def done(self, result=None, show_mode=None):
         self.calls.append(("done", result, show_mode))
 
-    async def start(self, state, data=None, mode=None, show_mode=None):
-        self.calls.append(("start", state, data, mode, show_mode))
+    async def start(self, state, data=None, mode=None, show_mode=None, access_settings=None):
+        self.calls.append(("start", state, data, mode, show_mode, access_settings))
 
     async def switch_to(self, state, show_mode=None):
         self.calls.append(("switch_to", state, show_mode))
@@ -167,6 +167,6 @@ async def test_delegation_smoke():
         ("next", ShowMode.EDIT),
         ("back", ShowMode.EDIT),
         ("done", "res", ShowMode.EDIT),
-        ("start", SG.a, {"d": 1}, StartMode.NORMAL, ShowMode.EDIT),
+        ("start", SG.a, {"d": 1}, StartMode.NORMAL, ShowMode.EDIT, None),
         ("switch_to", SG.a, ShowMode.EDIT),
     ]
