@@ -185,7 +185,7 @@ class ManagerImpl:
         if show_mode is not None:
             self.show_mode = show_mode
         if mode == StartMode.NEW_STACK:
-            raise NotImplementedError("StartMode.NEW_STACK не поддержан в v0.1")
+            raise NotImplementedError("StartMode.NEW_STACK не поддержан")
         if mode == StartMode.RESET_STACK:
             await self._clear_stack()
         await self._start_normal(state, data, access_settings)
