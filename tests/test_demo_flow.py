@@ -426,3 +426,38 @@ async def test_access_demo_admin_only_in_chat(fake_api):
     answers = fake_api.sent("messages.sendMessageEventAnswer")
     assert len(answers) == answers_before + 1
     assert "event_data" not in answers[-1]
+
+
+async def test_access_denied_on_recovery_path_in_chat(fake_api):
+    """Не-админ, кликающий чужой/устаревший intent в беседе (свой стек пуст →
+    путь восстановления), получает ТИХИЙ отказ, а не новое меню — иначе
+    валидатор обходился бы через _recover (живой смоук v0.3: «не-админам при
+    клике по общему меню присылалось новое»)."""
+    admin_ids = {111}
+    bot = Bot("token")
+    setup_dialogs(
+        bot,
+        *ALL_DIALOGS,
+        storage=MemoryStorage(),
+        api=fake_api,
+        access_validator=AdminOnlyInChatValidator(admin_ids),
+    )
+
+    @bot.on.message(NotInDialog(), text="/start")
+    async def start(message, dialog_manager):
+        await dialog_manager.start(Main.MAIN, mode=StartMode.RESET_STACK)
+
+    chat_peer = 2_000_000_001
+    # админ /start -> его меню; payload несёт intent админского стека
+    await bot.router.route(raw_message_new("/start", peer=chat_peer, from_id=111), fake_api)
+    admin_payload = next(iter(button_payloads(rendered_keyboard(fake_api)).values()))
+
+    # не-админ (id=999, свой стек пуст) кликает АДМИНСКИЙ payload -> intent не
+    # в его стеке -> раньше _recover слал новое меню, теперь тихий отказ.
+    rc_before = render_count(fake_api)
+    answers_before = len(fake_api.sent("messages.sendMessageEventAnswer"))
+    await bot.router.route(raw_message_event(admin_payload, peer=chat_peer, user=999), fake_api)
+    assert render_count(fake_api) == rc_before  # НЕ прислали новое меню
+    answers = fake_api.sent("messages.sendMessageEventAnswer")
+    assert len(answers) == answers_before + 1  # только тихий ack
+    assert "event_data" not in answers[-1]

@@ -142,9 +142,20 @@ class DialogView(ABCView):
                 try:
                     context = await self._validate(parsed, stack)
                 except (UnknownIntent, UnknownState, OutdatedIntent, InvalidPayload) as e:
+                    # Гейтим и путь восстановления: иначе не-админ, кликающий
+                    # чужое/устаревшее меню в беседе (типичный случай — общее
+                    # меню на всех), получал бы НОВОЕ меню в обход валидатора.
+                    # context ещё не загружен → проверка по stack.access_settings
+                    # (DefaultAccessValidator это поддерживает, context=None).
+                    if not await self._is_access_allowed(stack, None, ev):
+                        await self._deny_access(latch)
+                        return
                     await self._recover(e, ev, stack, message_manager, ctx_api, latch)
                     return
                 if context is None:  # message_new без payload при активном диалоге
+                    if not await self._is_access_allowed(stack, None, ev):
+                        await self._deny_access(latch)
+                        return
                     context = await self._load_top_or_recover(
                         ev, stack, message_manager, ctx_api, latch
                     )
@@ -156,8 +167,7 @@ class DialogView(ABCView):
                     # (тот отсеивается раньше, через несовпадение
                     # context.stack_key/stack.key в _validate). Тихий ack без
                     # текста; снекбар — опциональный, решение пользователя.
-                    if latch is not None:
-                        await latch.answer(snackbar=self.config.access_denied_snackbar)
+                    await self._deny_access(latch)
                     return
 
                 manager = ManagerImpl(
@@ -197,6 +207,11 @@ class DialogView(ABCView):
         if validator is None:
             return True
         return await validator.is_allowed(stack, context, ev)
+
+    async def _deny_access(self, latch: AnswerLatch | None) -> None:
+        # Тихий отказ (спека §4.2): ack без event_data, снекбар опционален.
+        if latch is not None:
+            await latch.answer(snackbar=self.config.access_denied_snackbar)
 
     async def _validate(self, parsed: ParsedPayload | None, stack: Any) -> Any:
         if parsed is None:
