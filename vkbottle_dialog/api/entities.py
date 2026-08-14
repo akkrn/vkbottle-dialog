@@ -67,6 +67,10 @@ def context_key(intent_id: str) -> str:
 
 @dataclass
 class AccessSettings:
+    # custom сериализуется storage'ом как есть (см. context/proxy.py
+    # _dump_access_settings) — при RedisStorage custom обязан быть
+    # JSON-сериализуемым (только dict/list/str/int/float/bool/None), иначе
+    # storage.set упадёт на json.dumps.
     user_ids: list[int]
     custom: Any = None
 
