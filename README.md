@@ -111,7 +111,7 @@ vkbottle **не блокирует** события между views: `DialogVie
 | Карусель (v0.3) | `Carousel` — VK-эксклюзив, за пределами оригинала (template, не media group) | ✅ |
 | `StartMode.NEW_STACK` | — | 🗺️ роадмап (пока `NotImplementedError`; без него `AccessSettings.user_ids` в основном не наблюдаем — см. ниже) |
 | `AccessSettings` (v0.3) | Хук `access_validator=` в `setup_dialogs` (тихий отказ) — без общих (shared) стеков `user_ids` почти не проявляется, см. «Демо-бот» | ✅ (частично, см. оговорку) |
-| Jinja-шаблоны для текста (v0.3) | `Jinja` — extra `[jinja]`, `autoescape=False` (у VK нет HTML) | ✅ |
+| Jinja-шаблоны для текста (v0.3) | `Jinja` — extra `[jinja]`, `autoescape=False` (у VK нет HTML); свой `jinja2.Environment` (кастомные фильтры/глобалы/лоадер) — через `setup_dialogs(jinja_env=...)` | ✅ |
 | Мульти-инстанс (v0.3) | `RedisLockRegistry` — распределённый lock с TTL/heartbeat, `setup_dialogs(locks=...)` | ✅ |
 
 ## Календарь и лимиты VK

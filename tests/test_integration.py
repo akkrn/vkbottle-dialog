@@ -1,6 +1,7 @@
 import json
 from datetime import date
 
+import jinja2
 import pytest
 from vkbottle import Bot
 
@@ -21,6 +22,8 @@ from vkbottle_dialog.widgets.kbd import (
     SwitchTo,
 )
 from vkbottle_dialog.widgets.text import Const, Format
+from vkbottle_dialog.widgets.text import jinja as jinja_module
+from vkbottle_dialog.widgets.text.jinja import Jinja
 
 
 class SG(StatesGroup):
@@ -429,3 +432,34 @@ async def test_dialog_level_getter_reaches_render(fake_api):
     await bot.router.route(raw_message_new("/start"), fake_api)
     text = fake_api.sent("messages.send")[-1]["message"]
     assert text == "Привет из dialog-геттера"
+
+
+async def test_setup_dialogs_jinja_env_reaches_jinja_widget_render(fake_api):
+    # FIX 2: setup_dialogs(jinja_env=...) обязан пробрасываться в DialogConfig
+    # и быть виден Jinja-виджету через manager.jinja_env — кастомный фильтр
+    # доказывает, что рендер реально использует ПЕРЕДАННЫЙ env, а не дефолтный
+    # (у дефолтного env фильтра "shout" нет — тест упал бы TemplateAssertionError).
+    def shout(value):
+        return f"{value}!!!"
+
+    custom_env = jinja2.Environment(
+        loader=jinja_module.StubLoader(),
+        autoescape=False,
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
+    custom_env.filters["shout"] = shout
+
+    dialog = Dialog(
+        Window(Jinja("{{ name|shout }}"), state=SG.menu, getter=lambda **kw: {"name": "hi"})
+    )
+    bot = Bot("token")
+    setup_dialogs(bot, dialog, storage=MemoryStorage(), api=fake_api, jinja_env=custom_env)
+
+    @bot.on.message(NotInDialog(), text="/start")
+    async def start(message, dialog_manager):
+        await dialog_manager.start(SG.menu, mode=StartMode.RESET_STACK)
+
+    await bot.router.route(raw_message_new("/start"), fake_api)
+    text = fake_api.sent("messages.send")[-1]["message"]
+    assert text == "hi!!!"

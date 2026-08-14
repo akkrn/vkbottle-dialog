@@ -83,6 +83,7 @@ def setup_dialogs(
     access_validator: Any = None,
     access_denied_snackbar: str | None = None,
     locks: LockRegistryLike | None = None,
+    jinja_env: Any = None,
 ) -> BgManagerFactory:
     """Подключает диалоги к боту и возвращает BgManagerFactory для bg()
     из внешнего кода (крон, вебхуки и т.п.).
@@ -104,7 +105,12 @@ def setup_dialogs(
     locks: None (дефолт) — внутрипроцессный LockRegistry, годится для
     single-instance деплоя. Для нескольких инстансов передайте
     RedisLockRegistry(redis) (context/redis_lock.py) — распределённый lock
-    с TTL и heartbeat-продлением на время удержания."""
+    с TTL и heartbeat-продлением на время удержания.
+
+    jinja_env: None (дефолт) — виджет Jinja использует общий дефолтный
+    jinja2.Environment (autoescape=False). Передайте свой jinja2.Environment,
+    чтобы подключить кастомные фильтры/глобалы/лоадер — он пробрасывается в
+    DialogConfig.jinja_env и виден каждому Jinja-виджету через manager.jinja_env."""
     global _ACTIVE
     states_registry = StatesRegistry()
     registry = DialogRegistry(*dialogs, states_registry=states_registry)
@@ -116,6 +122,7 @@ def setup_dialogs(
         stale_snackbar=stale_snackbar,
         access_validator=access_validator or DefaultAccessValidator(),
         access_denied_snackbar=access_denied_snackbar,
+        jinja_env=jinja_env,
     )
     if markup_factory is not None:
         config.default_markup_factory = markup_factory
