@@ -2,7 +2,12 @@
 photo + callback-кнопка «Выбрать» со снекбаром на элемент). Carousel рендерит
 не inline-клавиатуру, а template (спека §5) — окно занимает keyboard-слот
 целиком, поэтому нижняя навигация идёт отдельной callback-клавиатурой
-(TextKeyboardFactory), а не inline-кнопкой рядом с элементами."""
+(TextKeyboardFactory), а не inline-кнопкой рядом с элементами.
+
+Работает только в личных сообщениях: TextKeyboardFactory (нижняя навигация)
+в беседе поднимает DialogConfigError (см. window.py) — общая клавиатура на
+весь чат, точно так же, как секция «Нижняя клавиатура». Секция помечена
+«(ЛС)» и в тексте окна, и в главном меню."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,9 +46,10 @@ async def carousel_demo_getter(**kwargs) -> dict:
 carousel_demo_dialog = Dialog(
     Window(
         Const(
-            "🎠 Карусель — VK template, не inline-кнопки. Нижняя навигация — "
+            "🎠 Карусель (ЛС) — VK template, не inline-кнопки. Нижняя навигация — "
             "callback-клавиатура (TextKeyboardFactory), потому что карусель "
-            "занимает keyboard-слот окна целиком."
+            "занимает keyboard-слот окна целиком. В беседе такое окно упадёт с "
+            "DialogConfigError — общая клавиатура на весь чат, только для ЛС."
         ),
         Carousel(
             id="car",

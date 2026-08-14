@@ -44,7 +44,7 @@ main_dialog = Dialog(
             Start(Const("⌨️ Нижняя клавиатура (ЛС)"), id="to_text_kb", state=TextKb.MAIN),
             Start(Const("✨ VK-фишки"), id="to_vk_features", state=VkFeatures.MAIN),
             Start(Const("📋 ListGroup"), id="to_list", state=ListDemo.MAIN),
-            Start(Const("🎠 Карусель"), id="to_carousel", state=CarouselDemo.MAIN),
+            Start(Const("🎠 Карусель (ЛС)"), id="to_carousel", state=CarouselDemo.MAIN),
             Start(Const("🔒 Доступ"), id="to_access", state=AccessDemo.MAIN),
             Url(Const("📖 О библиотеке"), Const("https://github.com/akkrn/vkbottle-dialog")),
             id="menu_sg",
